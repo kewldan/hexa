@@ -119,7 +119,7 @@ export function JobBar({ job, label }: { job: ReturnType<typeof useJob>; label: 
         <span style={{ width: `${pct ?? 0}%` }} />
       </span>
       <button type="button" className="chip" onClick={job.cancel} disabled={job.job === null}>
-        Отменить
+        Отмена
       </button>
     </div>
   );

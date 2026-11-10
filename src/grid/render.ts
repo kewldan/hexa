@@ -1,4 +1,5 @@
 // Canvas renderer of the hex grid (DISP-01…28).
+import { t } from "../i18n";
 import type { ChangeSpan, Match } from "../ipc/api";
 import { byteKind, fmtOffset, hex2 } from "../lib/format";
 import type { Settings } from "../state/settings";
@@ -567,14 +568,17 @@ function drawFold(
   ctx.fillStyle = pal.muted;
   ctx.textAlign = "left";
   const size = f.end - f.start;
-  const human =
+  const human = t(
     size >= 1 << 20
       ? `${(size / (1 << 20)).toFixed(1)} МБ`
       : size >= 1024
         ? `${(size / 1024).toFixed(1)} КБ`
-        : `${size} Б`;
+        : `${size} Б`,
+  );
   ctx.fillText(
-    `⋯  свёрнуто 0x${f.start.toString(16).toUpperCase()}–0x${f.end.toString(16).toUpperCase()} · ${human} · клик — развернуть`,
+    t(
+      `⋯  свёрнуто 0x${f.start.toString(16).toUpperCase()}–0x${f.end.toString(16).toUpperCase()} · ${human} · клик — развернуть`,
+    ),
     l.hexX || l.padX,
     y + rowH / 2,
   );

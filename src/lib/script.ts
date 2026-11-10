@@ -78,6 +78,7 @@ function saveLocal(key: string, value: unknown) {
   }
 }
 
+// i18n-ignore: Lua code placed into the editor.
 const DEFAULT_SOURCE = `-- Пример: XOR выделения с 0x5A
 local sel = hexa.selection()
 if not sel then return "Выделите байты" end

@@ -1,5 +1,6 @@
 // Settings (UI-11) including the theme editor (DISP-25) and key bindings (UI-03).
 import { useEffect, useState } from "react";
+import { t } from "../../i18n";
 import { bindings, COMMANDS } from "../../lib/commands";
 import { chordOf, displayKeys } from "../../lib/keys";
 import { encodings } from "../../state/actions";
@@ -113,7 +114,9 @@ function KeysSection() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [recording, s.keyOverrides, set]);
   const list = COMMANDS.filter((c) =>
-    `${c.group} ${c.title}`.toLowerCase().includes(filter.toLowerCase()),
+    `${c.group} ${c.title} ${t(c.group)} ${t(c.title)}`
+      .toLowerCase()
+      .includes(filter.toLowerCase()),
   );
   return (
     <>

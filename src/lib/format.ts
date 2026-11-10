@@ -1,4 +1,5 @@
 // Number and size formatting helpers.
+import { locale } from "../i18n";
 
 const HEX = "0123456789ABCDEF";
 
@@ -19,16 +20,19 @@ export function groupDec(n: number): string {
 }
 
 const UNITS = ["Б", "КБ", "МБ", "ГБ", "ТБ", "ПБ"];
+const UNITS_EN = ["B", "KB", "MB", "GB", "TB", "PB"];
 
 export function fmtSize(n: number): string {
-  if (n < 1024) return `${groupDec(n)} Б`;
+  const en = locale() === "en";
+  if (n < 1024) return en ? `${groupDec(n)} B` : `${groupDec(n)} Б`;
   let v = n;
   let i = 0;
   while (v >= 1024 && i < UNITS.length - 1) {
     v /= 1024;
     i++;
   }
-  return `${v.toFixed(v < 10 ? 1 : 0).replace(".", ",")} ${UNITS[i]}`;
+  const num = v.toFixed(v < 10 ? 1 : 0);
+  return en ? `${num} ${UNITS_EN[i]}` : `${num.replace(".", ",")} ${UNITS[i]}`;
 }
 
 export type OffsetBase = "hex" | "dec" | "oct" | "seg";
@@ -68,12 +72,22 @@ export function offsetWidth(maxOffset: number, base: OffsetBase, segSize = 0x100
 
 export function relTime(ms: number, now = Date.now()): string {
   const d = Math.max(0, now - ms) / 1000;
+  if (locale() === "en") return relTimeEn(d, ms);
   if (d < 60) return "только что";
   if (d < 3600) return `${Math.floor(d / 60)} мин назад`;
   if (d < 86400) return `${Math.floor(d / 3600)} ч назад`;
   if (d < 86400 * 2) return "вчера";
   if (d < 86400 * 30) return `${Math.floor(d / 86400)} дн назад`;
   return new Date(ms).toLocaleDateString("ru-RU");
+}
+
+function relTimeEn(d: number, ms: number): string {
+  if (d < 60) return "just now";
+  if (d < 3600) return `${Math.floor(d / 60)} min ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)} h ago`;
+  if (d < 86400 * 2) return "yesterday";
+  if (d < 86400 * 30) return `${Math.floor(d / 86400)} d ago`;
+  return new Date(ms).toLocaleDateString("en-US");
 }
 
 /** Byte category for colouring (DISP-13). */

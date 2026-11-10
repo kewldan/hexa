@@ -1,5 +1,6 @@
 // Command palette, goto, context menu and toast.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { t } from "../i18n";
 import { COMMANDS, type Command, keysFor, layoutCommands, runCommand } from "../lib/commands";
 import { evalExpr } from "../lib/expr";
 import { groupDec, hexN } from "../lib/format";
@@ -11,6 +12,7 @@ import { type MenuItem, useUi } from "../state/ui";
 import { Icon } from "./icons";
 
 const EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,.`";
+// i18n-ignore: keyboard layout, not text.
 const RU = "йцукенгшщзхъфывапролджэячсмитьбюё";
 
 /** Text typed in the wrong keyboard layout ("ntvf" → "тема"). */
@@ -64,9 +66,9 @@ export function Palette() {
   const close = () => ui.set({ palette: false, paletteQuery: "" });
 
   const items = useMemo(() => {
-    const all: Command[] = [...COMMANDS, ...layoutCommands()].filter(
-      (c) => !c.hidden && (!c.doc || tab),
-    );
+    const all: Command[] = [...COMMANDS, ...layoutCommands()]
+      .filter((c) => !c.hidden && (!c.doc || tab))
+      .map((c) => ({ ...c, title: t(c.title), group: t(c.group) }));
     const out: { c: Command; idx: number[]; s: number }[] = [];
     // An offset typed directly jumps there.
     if (tab && q.trim()) {

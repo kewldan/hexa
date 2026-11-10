@@ -12,6 +12,7 @@ import { Sidebar } from "./components/Sidebar";
 import { StartScreen } from "./components/StartScreen";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
+import { useLocale } from "./i18n";
 import { api } from "./ipc/api";
 import { resolve, runCommand } from "./lib/commands";
 import { chordOf, isMac } from "./lib/keys";
@@ -200,6 +201,7 @@ export function App() {
   useTheme();
   useKeyboard();
   useBackendEvents();
+  useLocale(useSettings((s) => s.s.locale));
 
   useEffect(() => {
     (async () => {

@@ -135,7 +135,7 @@ export function StringsPanel({ tab }: { tab: Tab }) {
           </span>
         </div>
       ) : (
-        <div className="list" style={{ gap: 0 }}>
+        <div className="list" style={{ gap: 0 }} data-no-i18n>
           {shown.slice(0, limit).map((s) => (
             <button
               type="button"
