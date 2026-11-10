@@ -4,11 +4,16 @@
 //! a headless CLI and a WebAssembly build.
 
 pub mod document;
+pub mod encoding;
 pub mod error;
+pub mod format;
+pub mod hash;
 pub mod history;
+pub mod inspector;
 pub mod piece;
 pub mod provider;
 pub mod save;
+pub mod search;
 pub mod task;
 pub mod tree;
 

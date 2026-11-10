@@ -31,6 +31,8 @@ return_self_not_must_use = "allow"
 struct_excessive_bools = "allow"
 many_single_char_names = "allow"
 trivially_copy_pass_by_ref = "allow"
+too_many_arguments = "allow"
+unusual_byte_groupings = "allow"
 
 [profile.release]
 lto = "thin"
