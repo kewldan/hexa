@@ -631,8 +631,10 @@ mod tests {
     #[test]
     fn library_templates_compile() {
         for item in tpl_library() {
-            compile(&TplSource::Library { id: item.id.clone() })
-                .unwrap_or_else(|e| panic!("{}: {}", item.id, e.message));
+            compile(&TplSource::Library {
+                id: item.id.clone(),
+            })
+            .unwrap_or_else(|e| panic!("{}: {}", item.id, e.message));
         }
     }
 }
