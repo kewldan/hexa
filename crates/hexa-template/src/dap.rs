@@ -28,6 +28,8 @@ pub struct Adapter {
     source: String,
     stop_on_entry: bool,
     started: bool,
+    /// Breakpoint lines; clients may send them before `launch`.
+    breakpoints: Vec<u32>,
     done: bool,
     cancel: Cancel,
 }
@@ -94,7 +96,9 @@ impl Adapter {
         } else {
             Tree::from_piece(Piece::bytes(data))
         };
-        self.debugger = Some(Debugger::new(program, tree, opts));
+        let mut debugger = Debugger::new(program, tree, opts);
+        debugger.set_breakpoints(self.breakpoints.iter().copied());
+        self.debugger = Some(debugger);
         Ok(())
     }
 
@@ -183,9 +187,10 @@ impl Adapter {
                 if let Some(d) = &mut self.debugger {
                     d.set_breakpoints(lines.iter().copied());
                 }
+                self.breakpoints.clone_from(&lines);
                 let bps: Vec<Value> = lines
                     .iter()
-                    .map(|l| json!({"verified": self.debugger.is_some(), "line": l}))
+                    .map(|l| json!({"verified": true, "line": l}))
                     .collect();
                 vec![self.response(req, true, json!({"breakpoints": bps}), None)]
             }
@@ -440,6 +445,27 @@ mod tests {
         let out = a.handle(&req(10, "disconnect", json!({})));
         assert_eq!(out[0]["success"], true);
         assert!(a.is_done());
+    }
+
+    #[test]
+    fn breakpoints_set_before_launch_are_kept() {
+        let mut a = Adapter::new();
+        a.handle(&req(1, "initialize", json!({})));
+        let out = a.handle(&req(
+            2,
+            "setBreakpoints",
+            json!({"source": {"path": "t.hexpat"}, "breakpoints": [{"line": 2}]}),
+        ));
+        assert_eq!(out[0]["body"]["breakpoints"][0]["verified"], true);
+        a.load(
+            "u8 a;\nu8 b;\n",
+            Dialect::Hexpat,
+            vec![1, 2],
+            EvalOptions::default(),
+        )
+        .unwrap();
+        let out = a.handle(&req(3, "configurationDone", json!({})));
+        assert_eq!(out[1]["body"]["reason"], "breakpoint");
     }
 
     #[test]
