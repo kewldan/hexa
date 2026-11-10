@@ -108,3 +108,24 @@ describe(".tbl tables", () => {
     expect(t.entries.get("FF")).toBe("<end>");
   });
 });
+
+describe("row map with folds", () => {
+  it("maps offsets and rows around folded regions", async () => {
+    const { RowMap } = await import("./rowmap");
+    // 16 bytes per row, 20 rows; fold rows 2..6 (5 rows → 1) and 10..15.
+    const m = new RowMap(16 * 20 - 1, 16, [
+      { start: 32, end: 96 + 16 },
+      { start: 160, end: 256 },
+    ]);
+    expect(m.totalRows).toBe(20 - 4 - 5);
+    expect(m.rowOf(0)).toBe(0);
+    expect(m.rowOf(40)).toBe(2);
+    expect(m.rowOf(7 * 16)).toBe(3);
+    expect(m.info(2)).toMatchObject({ kind: "fold" });
+    expect(m.info(3)).toEqual({ kind: "data", offset: 7 * 16 });
+    expect(m.rowOf(16 * 16)).toBe(m.rowOf(10 * 16) + 1);
+    expect(m.info(m.rowOf(16 * 16))).toEqual({ kind: "data", offset: 16 * 16 });
+    expect(m.foldAt(50)).toEqual({ start: 32, end: 112 });
+    expect(m.foldAt(120)).toBeNull();
+  });
+});

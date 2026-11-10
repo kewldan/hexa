@@ -1103,3 +1103,86 @@ pub fn plan_replacements(
     }
     Ok(out)
 }
+
+/// A run of one repeated byte (DISP-24).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Run {
+    pub start: u64,
+    pub end: u64,
+    pub byte: u8,
+}
+
+/// Finds runs of a single repeated byte at least `min_len` long, streaming.
+pub fn find_runs(tree: &Tree, min_len: u64, max: usize, cancel: &Cancel) -> Result<Vec<Run>> {
+    let mut out = Vec::new();
+    let len = tree.len();
+    let mut buf = vec![0u8; CHUNK];
+    let mut cur: Option<(u64, u8)> = None;
+    let mut pos = 0;
+    while pos < len && out.len() < max {
+        cancel.check()?;
+        let n = (len - pos).min(CHUNK as u64) as usize;
+        tree.read(pos, &mut buf[..n])?;
+        for (i, &b) in buf[..n].iter().enumerate() {
+            let at = pos + i as u64;
+            match cur {
+                Some((_, v)) if v == b => {}
+                Some((s, v)) => {
+                    if at - s >= min_len {
+                        out.push(Run {
+                            start: s,
+                            end: at,
+                            byte: v,
+                        });
+                    }
+                    cur = Some((at, b));
+                }
+                None => cur = Some((at, b)),
+            }
+        }
+        pos += n as u64;
+    }
+    if let Some((s, v)) = cur
+        && len - s >= min_len
+        && out.len() < max
+    {
+        out.push(Run {
+            start: s,
+            end: len,
+            byte: v,
+        });
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod run_tests {
+    use super::*;
+    use crate::piece::Piece;
+
+    #[test]
+    fn finds_long_runs() {
+        let mut d = vec![1u8, 2];
+        d.extend([0u8; 100]);
+        d.push(3);
+        d.extend([0xFFu8; 50]);
+        let t = Tree::from_piece(Piece::bytes(d));
+        let r = find_runs(&t, 40, 10, &Cancel::new()).unwrap();
+        assert_eq!(
+            r,
+            vec![
+                Run {
+                    start: 2,
+                    end: 102,
+                    byte: 0
+                },
+                Run {
+                    start: 103,
+                    end: 153,
+                    byte: 0xFF
+                }
+            ]
+        );
+    }
+}

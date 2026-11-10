@@ -22,6 +22,7 @@ import { cacheFor } from "./cache";
 import { computeLayout, type GridLayout, hitHexCell, hitTextByte } from "./layout";
 import { Minimap } from "./Minimap";
 import { cursorLabel, HexAtlas, type Palette, readPalette, renderGrid, withAlpha } from "./render";
+import { RowMap } from "./rowmap";
 import { parseTbl, TblDecoder } from "./tbl";
 import { TextDecoder2 } from "./text";
 
@@ -40,8 +41,73 @@ interface Fx {
   h: number;
 }
 
-export function HexGrid({ tab }: { tab: Tab }) {
-  const s = useSettings((st) => st.s);
+/** Tabs whose scrolling follows another tab (DISP-21), set by the editor area. */
+export const linkedScroll = { pairs: new Map<number, number[]>() };
+
+function syncLinked(
+  id: number,
+  fn: (cur: { topRow: number; scrollX: number }) => { topRow: number; scrollX: number },
+) {
+  const others = linkedScroll.pairs.get(id);
+  if (!others?.length) return;
+  const st = useTabs.getState();
+  const me = st.tabs.find((t) => t.id === id);
+  if (!me) return;
+  const next = fn({ topRow: me.topRow, scrollX: me.scrollX });
+  const d = next.topRow - me.topRow;
+  for (const o of others)
+    st.update(o, (t) => ({ topRow: Math.max(0, t.topRow + d), scrollX: next.scrollX }));
+}
+
+export function HexGrid({ tab, pane = 0 }: { tab: Tab; pane?: number }) {
+  const global = useSettings((st) => st.s);
+  const paneState =
+    pane === 0
+      ? { topRow: tab.topRow, scrollX: tab.scrollX }
+      : (tab.panes[pane - 1] ?? { topRow: 0, scrollX: 0 });
+  const paneOverrides = pane === 0 ? undefined : tab.panes[pane - 1];
+  // DISP-22: a pane may show the same file with its own view settings.
+  const s = useMemo(
+    () =>
+      paneOverrides
+        ? {
+            ...global,
+            ...(paneOverrides.bytesPerRow !== undefined
+              ? { bytesPerRow: paneOverrides.bytesPerRow }
+              : {}),
+            ...(paneOverrides.cellView
+              ? { cellView: paneOverrides.cellView as typeof global.cellView }
+              : {}),
+            ...(paneOverrides.encoding ? { encoding: paneOverrides.encoding } : {}),
+          }
+        : global,
+    [global, paneOverrides],
+  );
+  const isMain = pane === 0;
+  /** Updates this pane's scroll state; synced panes follow (DISP-20). */
+  const scrollPane = useCallback(
+    (fn: (cur: { topRow: number; scrollX: number }) => { topRow: number; scrollX: number }) => {
+      useTabs.getState().update(tab.id, (t) => {
+        const cur =
+          pane === 0
+            ? { topRow: t.topRow, scrollX: t.scrollX }
+            : (t.panes[pane - 1] ?? { topRow: 0, scrollX: 0 });
+        const next = fn(cur);
+        const dTop = next.topRow - cur.topRow;
+        const panes = t.panes.map((p, i) =>
+          i === pane - 1
+            ? { ...p, ...next }
+            : t.paneSync
+              ? { ...p, topRow: Math.max(0, p.topRow + dTop) }
+              : p,
+        );
+        if (pane === 0) return { ...next, panes };
+        return t.paneSync ? { panes, topRow: Math.max(0, t.topRow + dTop) } : { panes };
+      });
+      syncLinked(tab.id, fn);
+    },
+    [tab.id, pane],
+  );
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
@@ -70,9 +136,16 @@ export function HexGrid({ tab }: { tab: Tab }) {
       }),
     [s, cw, rowH, size.w, tab.info.len],
   );
-  A.viewport.bpr = layout.bpr;
-  A.viewport.rows = Math.max(1, Math.floor(size.h / rowH));
-  A.viewport.cellBytes = layout.cellBytes;
+  const rowMap = useMemo(
+    () => (tab.folds.length ? new RowMap(tab.info.len, layout.bpr, tab.folds) : null),
+    [tab.folds, tab.info.len, layout.bpr],
+  );
+  if (isMain) {
+    A.viewport.bpr = layout.bpr;
+    A.viewport.rows = Math.max(1, Math.floor(size.h / rowH));
+    A.viewport.cellBytes = layout.cellBytes;
+    A.viewport.rowMap = rowMap;
+  }
 
   // Palette follows theme, accent and overrides.
   useEffect(() => {
@@ -135,10 +208,11 @@ export function HexGrid({ tab }: { tab: Tab }) {
     return () => ro.disconnect();
   }, []);
 
-  const totalRows = Math.floor(tab.info.len / layout.bpr) + 1;
+  const totalRows = rowMap ? rowMap.totalRows : Math.floor(tab.info.len / layout.bpr) + 1;
   const visibleRows = Math.max(1, Math.floor(size.h / rowH));
   const maxTop = Math.max(0, totalRows - visibleRows + 1);
-  const topRow = Math.min(tab.topRow, maxTop);
+  const topRow = Math.min(paneState.topRow, maxTop);
+  const scrollX = paneState.scrollX;
 
   // Keep the cursor visible when the row width changes.
   const prevBpr = useRef(layout.bpr);
@@ -199,7 +273,7 @@ export function HexGrid({ tab }: { tab: Tab }) {
       decoder,
       len: tab.info.len,
       topRow,
-      scrollX: tab.scrollX,
+      scrollX,
       cursor: tab.cursor,
       anchor: tab.anchor,
       column: tab.column,
@@ -211,29 +285,30 @@ export function HexGrid({ tab }: { tab: Tab }) {
       pins,
       extraSel: tab.extra,
       bit: tab.bit,
+      rowMap,
     });
   });
 
   // Effects (edit pop, jump flash).
   const rectOf = useCallback(
     (offset: number, col: "hex" | "text") => {
-      const row = Math.floor(offset / layout.bpr);
+      const row = rowMap ? rowMap.rowOf(offset) : Math.floor(offset / layout.bpr);
       const i = offset % layout.bpr;
       const y = (row - topRow) * rowH + 1.5;
       if (col === "hex") {
         const c = Math.floor(i / layout.cellBytes);
         const x =
           c < layout.cellX.length ? layout.hexX + layout.cellX[c] : layout.hexX + layout.hexW + 4;
-        return { x: x - tab.scrollX, y, w: layout.cellW, h: rowH - 3 };
+        return { x: x - scrollX, y, w: layout.cellW, h: rowH - 3 };
       }
       return {
-        x: layout.textX + i * layout.textCharW - tab.scrollX,
+        x: layout.textX + i * layout.textCharW - scrollX,
         y,
         w: layout.textCharW,
         h: rowH - 3,
       };
     },
-    [layout, topRow, rowH, tab.scrollX],
+    [layout, topRow, rowH, scrollX, rowMap],
   );
   useEffect(
     () =>
@@ -293,9 +368,13 @@ export function HexGrid({ tab }: { tab: Tab }) {
     (e: { clientX: number; clientY: number }) => {
       const el = wrapRef.current!;
       const r = el.getBoundingClientRect();
-      const x = e.clientX - r.left + tab.scrollX;
+      const x = e.clientX - r.left + scrollX;
       const y = e.clientY - r.top;
-      const row = Math.floor(topRow + y / rowH);
+      const drow = Math.floor(topRow + y / rowH);
+      const info = rowMap ? rowMap.info(drow) : null;
+      if (info?.kind === "fold")
+        return { offset: info.fold.start, column: tab.column, nib: 0, fold: info.fold };
+      const row = info ? info.offset / layout.bpr : drow;
       const hc = layout.columns.includes("hex") ? hitHexCell(layout, x) : -1;
       if (hc >= 0) {
         const off = row * layout.bpr + hc * layout.cellBytes;
@@ -314,7 +393,7 @@ export function HexGrid({ tab }: { tab: Tab }) {
       const off = row * layout.bpr + (x < layout.hexX ? 0 : layout.bpr - 1);
       return { offset: Math.min(Math.max(0, off), tab.info.len), column: tab.column, nib: 0 };
     },
-    [layout, topRow, rowH, tab.scrollX, tab.info.len, tab.column],
+    [layout, topRow, rowH, scrollX, tab.info.len, tab.column, rowMap],
   );
 
   const dragging = useRef(false);
@@ -324,6 +403,12 @@ export function HexGrid({ tab }: { tab: Tab }) {
     A.commitCellBuffer();
     const h = hit(e);
     const update = useTabs.getState().update;
+    if ("fold" in h && h.fold) {
+      // Click on a folded row unfolds it (DISP-23).
+      const f = h.fold;
+      update(tab.id, (t) => ({ folds: t.folds.filter((x) => x !== f) }));
+      return;
+    }
     if (e.detail === 2) {
       // Double click: select the group under the cursor.
       const g = Math.max(1, s.group);
@@ -384,7 +469,10 @@ export function HexGrid({ tab }: { tab: Tab }) {
       if (!r || !dragging.current) return;
       const d = lastY < r.top ? lastY - r.top : lastY > r.bottom ? lastY - r.bottom : 0;
       if (d !== 0) {
-        update(tab.id, (t) => ({ topRow: Math.max(0, Math.min(maxTop, t.topRow + d / rowH / 2)) }));
+        scrollPane((t) => ({
+          ...t,
+          topRow: Math.max(0, Math.min(maxTop, t.topRow + d / rowH / 2)),
+        }));
       }
     }, 30);
     const up = () => {
@@ -446,9 +534,9 @@ export function HexGrid({ tab }: { tab: Tab }) {
         {notes.map((n) => (
           <div key={n.id}>
             <b>{n.name}</b>
-            {/* biome-ignore lint/security/noDangerouslySetInnerHtml: escaped Markdown */}
             <div
               className="md"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: escaped Markdown
               dangerouslySetInnerHTML={{ __html: renderMarkdown(n.note || "—") }}
             />
           </div>
@@ -484,17 +572,15 @@ export function HexGrid({ tab }: { tab: Tab }) {
       const mult = e.deltaMode === 1 ? rowH : e.deltaMode === 2 ? size.h : 1;
       const dy = e.deltaY * mult;
       const dx = (e.shiftKey ? e.deltaY : e.deltaX) * (e.deltaMode === 1 ? cw : 1);
-      useTabs.getState().update(tab.id, (t) => {
-        const maxX = Math.max(0, layout.totalW - size.w);
-        return {
-          topRow: e.shiftKey ? t.topRow : Math.max(0, Math.min(maxTop, t.topRow + dy / rowH)),
-          scrollX: Math.max(0, Math.min(maxX, t.scrollX + (Math.abs(dx) > 0 ? dx : 0))),
-        };
-      });
+      const maxX = Math.max(0, layout.totalW - size.w);
+      scrollPane((t) => ({
+        topRow: e.shiftKey ? t.topRow : Math.max(0, Math.min(maxTop, t.topRow + dy / rowH)),
+        scrollX: Math.max(0, Math.min(maxX, t.scrollX + (Math.abs(dx) > 0 ? dx : 0))),
+      }));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [tab.id, rowH, maxTop, size, layout.totalW, cw]);
+  }, [rowH, maxTop, size, layout.totalW, cw, scrollPane]);
 
   const onContextMenu = (e: ReactMouseEvent) => {
     e.preventDefault();
@@ -524,9 +610,7 @@ export function HexGrid({ tab }: { tab: Tab }) {
     <section className="ed" aria-label="Данные файла" data-tick={tick}>
       {s.showColHeader && (
         <div className="colhead" aria-hidden="true">
-          <div
-            style={{ position: "absolute", inset: 0, transform: `translateX(${-tab.scrollX}px)` }}
-          >
+          <div style={{ position: "absolute", inset: 0, transform: `translateX(${-scrollX}px)` }}>
             {layout.columns.includes("offset") && (
               <span className="asc-h" style={{ left: layout.offsetX, width: layout.offsetW }}>
                 Смещение

@@ -752,3 +752,21 @@ pub struct PlannedIn {
     pub len: u64,
     pub new: Vec<u8>,
 }
+
+/// Long runs of one byte value, for folding repeats (DISP-24).
+#[tauri::command]
+pub async fn find_runs(
+    state: State<'_, AppState>,
+    id: u64,
+    min_len: u64,
+    max: usize,
+) -> CmdResult<Vec<hexa_core::search::Run>> {
+    let entry = state.get(id)?;
+    let tree = entry.view.read().tree.clone();
+    let r = tauri::async_runtime::spawn_blocking(move || {
+        hexa_core::search::find_runs(&tree, min_len.max(2), max, &hexa_core::Cancel::new())
+    })
+    .await
+    .map_err(|e| CmdError::new("internal", e.to_string()))?;
+    Ok(r?)
+}

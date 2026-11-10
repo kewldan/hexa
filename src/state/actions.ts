@@ -24,7 +24,12 @@ import { confirm, openDialog, toast, useUi } from "./ui";
 // ---------------------------------------------------------------- viewport
 
 /** Grid geometry published by the grid component. */
-export const viewport = { bpr: 16, rows: 30, cellBytes: 1 };
+export const viewport: {
+  bpr: number;
+  rows: number;
+  cellBytes: number;
+  rowMap: import("../grid/rowmap").RowMap | null;
+} = { bpr: 16, rows: 30, cellBytes: 1, rowMap: null };
 
 // ---------------------------------------------------------------- encodings
 
@@ -151,7 +156,7 @@ export async function addMark(kind: "bookmark" | "label" | "annotation") {
 /** NAV-05: next/previous bookmark from the cursor. */
 export function nextMark(dir: 1 | -1) {
   const t = activeTab();
-  if (!t || !t.marks.length) return toast("Закладок нет");
+  if (!t?.marks.length) return toast("Закладок нет");
   const sorted = [...t.marks].sort((a, b) => a.start - b.start);
   const m =
     dir > 0
@@ -186,13 +191,19 @@ export function resetHistoryListeners() {
 export function scrollIntoView(id: number, offset: number, center = false) {
   const t = tab(id);
   if (!t) return;
-  const row = Math.floor(offset / viewport.bpr);
+  // A jump into a folded region unfolds it (DISP-23).
+  const fold = viewport.rowMap?.foldAt(offset);
+  if (fold && offset !== fold.start)
+    patch(id, (cur) => ({ folds: cur.folds.filter((f) => f !== fold) }));
+  const map = fold && offset !== fold.start ? null : viewport.rowMap;
+  const row = map ? map.rowOf(offset) : Math.floor(offset / viewport.bpr);
   const rows = Math.max(1, viewport.rows - 1);
   let top = t.topRow;
   if (center && (row < top || row >= top + rows)) top = row - Math.floor(rows / 2);
   else if (row < top) top = row;
   else if (row >= top + rows) top = row - rows + 1;
-  const maxTop = Math.max(0, Math.ceil((t.info.len + 1) / viewport.bpr) - rows);
+  const total = map ? map.totalRows : Math.ceil((t.info.len + 1) / viewport.bpr);
+  const maxTop = Math.max(0, total - rows);
   top = Math.max(0, Math.min(top, maxTop));
   if (top !== t.topRow) patch(id, { topRow: top });
 }
@@ -321,6 +332,55 @@ export function selectRange(start: number, end: number) {
   if (e <= s) return setCursor(s);
   patch(t.id, { anchor: s, cursor: e - 1, nibble: 0 });
   scrollIntoView(t.id, s, true);
+}
+
+// ---------------------------------------------------------------- folds & panes (DISP-20…24)
+
+export function foldSelection() {
+  const t = activeTab();
+  if (!t) return;
+  const s = selection(t);
+  if (s.end - s.start < viewport.bpr * 2) return toast("Выделите хотя бы две строки", true);
+  patch(t.id, (cur) => ({
+    folds: [...cur.folds, { start: s.start, end: s.end }],
+    anchor: s.start,
+    cursor: s.start,
+  }));
+}
+
+export function unfoldAll() {
+  const t = activeTab();
+  if (t) patch(t.id, { folds: [] });
+}
+
+/** DISP-24: collapse long runs of one repeated byte (like `*` in hexdump). */
+export async function foldRepeats() {
+  const t = activeTab();
+  if (!t) return;
+  try {
+    const runs = await api.findRuns(t.id, viewport.bpr * 4, 10_000);
+    const bpr = viewport.bpr;
+    const folds = runs
+      .map((r) => ({
+        start: Math.ceil(r.start / bpr) * bpr + bpr,
+        end: Math.floor(r.end / bpr) * bpr,
+      }))
+      .filter((f) => f.end - f.start >= bpr * 2);
+    patch(t.id, { folds });
+    toast(folds.length ? `Свёрнуто повторов: ${folds.length}` : "Длинных повторов нет");
+  } catch (e) {
+    report(e);
+  }
+}
+
+export function splitPanes(n: number) {
+  const t = activeTab();
+  if (!t) return;
+  const panes = Array.from(
+    { length: Math.max(0, n - 1) },
+    (_, i) => t.panes[i] ?? { topRow: t.topRow, scrollX: 0 },
+  );
+  patch(t.id, { panes });
 }
 
 // ---------------------------------------------------------------- files

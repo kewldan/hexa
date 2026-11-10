@@ -515,6 +515,18 @@ export function installMock() {
             inserted: clip.length,
           });
         }
+        case "find_runs": {
+          const d = doc();
+          const runs: { start: number; end: number; byte: number }[] = [];
+          let i = 0;
+          while (i < d.data.length && runs.length < (a.max ?? 1000)) {
+            let j = i + 1;
+            while (j < d.data.length && d.data[j] === d.data[i]) j++;
+            if (j - i >= a.minLen) runs.push({ start: i, end: j, byte: d.data[i] });
+            i = j;
+          }
+          return runs;
+        }
         case "marks_list":
           return marks.filter((m) => m.doc === a.id).map(({ doc: _, ...m }) => m);
         case "marks_add": {

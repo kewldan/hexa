@@ -13,6 +13,7 @@ export type Dialog =
   | { kind: "props" }
   | { kind: "followPointer" }
   | { kind: "moveBlock" }
+  | { kind: "pickTab" }
   | { kind: "replacePreview"; plan: import("../ipc/api").Planned[] }
   | { kind: "mark"; mark: import("../ipc/api").Mark }
   | { kind: "confirm"; title: string; body: string; actions: ConfirmAction[] }
@@ -53,6 +54,8 @@ interface UiStore {
   toast: Toast | null;
   progress: { label: string; done: number; total: number; job?: number } | null;
   dragOver: boolean;
+  /** Two tabs shown side by side (DISP-21, DIFF-06). */
+  compare: { a: number; b: number; sync: boolean } | null;
   set: (patch: Partial<Omit<UiStore, "set">>) => void;
 }
 
@@ -67,6 +70,7 @@ export const useUi = create<UiStore>((set) => ({
   toast: null,
   progress: null,
   dragOver: false,
+  compare: null,
   set: (patch) => set(patch),
 }));
 

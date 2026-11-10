@@ -4,6 +4,7 @@ import { byteKind, fmtOffset, hex2 } from "../lib/format";
 import type { Settings } from "../state/settings";
 import type { DocCache } from "./cache";
 import type { GridLayout } from "./layout";
+import type { Fold, RowInfo, RowMap } from "./rowmap";
 import type { TblDecoder } from "./tbl";
 import type { TextDecoder2 } from "./text";
 
@@ -160,6 +161,8 @@ export interface RenderInput {
   extraSel?: { start: number; end: number }[];
   /** Bit under the cursor in binary view (DISP-08). */
   bit?: number;
+  /** Folded regions (DISP-23/24). */
+  rowMap?: RowMap | null;
 }
 
 const F_SEL = 1;
@@ -243,54 +246,74 @@ export function renderGrid(p: RenderInput): void {
   const first = Math.floor(p.topRow);
   const frac = (p.topRow - first) * rowH;
   const rows = Math.ceil(p.height / rowH) + 1;
-  const totalRows = Math.floor(len / l.bpr) + 1;
-  const viewStart = first * l.bpr;
-  const viewEnd = Math.min((first + rows) * l.bpr, len);
-  cache.ensure(Math.max(0, viewStart - l.bpr * 8), viewEnd + l.bpr * 8);
-
-  // Per-byte flags for the visible window.
-  const n = Math.max(0, viewEnd - viewStart);
-  const flags = new Uint8Array(n);
-  const sel = { start: Math.min(p.cursor, p.anchor), end: Math.max(p.cursor, p.anchor) + 1 };
-  const hasSel = p.cursor !== p.anchor;
-  if (hasSel) {
-    for (let o = Math.max(sel.start, viewStart); o < Math.min(sel.end, viewEnd); o++)
-      flags[o - viewStart] |= F_SEL;
+  // Display rows → byte offsets (folds collapse whole rows, DISP-23).
+  const infos: RowInfo[] = [];
+  const map = p.rowMap;
+  for (let r = 0; r < rows; r++) {
+    const row = first + r;
+    if (map ? row >= map.totalRows : row >= Math.floor(len / l.bpr) + 1) break;
+    infos.push(map ? map.info(row) : { kind: "data", offset: row * l.bpr });
   }
-  if (p.matches.length) {
-    for (let i = lowerBound(p.matches, viewStart); i < p.matches.length; i++) {
-      const m = p.matches[i];
-      if (m.offset >= viewEnd) break;
-      const f = i === p.currentMatch ? F_CUR_MATCH : F_MATCH;
-      for (let o = Math.max(m.offset, viewStart); o < Math.min(m.offset + m.len, viewEnd); o++)
-        flags[o - viewStart] |= f;
+  // Contiguous byte spans between folds, each with its own layer data.
+  const segOf: number[] = [];
+  const segs: { start: number; end: number }[] = [];
+  for (const info of infos) {
+    if (info.kind !== "data") {
+      segOf.push(-1);
+      continue;
     }
+    const last = segs[segs.length - 1];
+    if (last && last.end === info.offset) last.end = Math.min(info.offset + l.bpr, len);
+    else segs.push({ start: info.offset, end: Math.min(info.offset + l.bpr, len) });
+    segOf.push(segs.length - 1);
   }
-  let deletions: number[] = [];
-  if (s.highlightChanges && s.layers.changes) {
-    const spans: ChangeSpan[] = cache.changes(viewStart, viewEnd);
-    for (const sp of spans) {
-      if (sp.kind === "deleted") {
-        if (sp.start >= viewStart && sp.start <= viewEnd) deletions.push(sp.start);
-        continue;
+  const layerData = segs.map(({ start: viewStart, end: viewEnd }) => {
+    cache.ensure(Math.max(0, viewStart - l.bpr * 8), viewEnd + l.bpr * 8);
+    // Per-byte flags for the visible window.
+    const n = Math.max(0, viewEnd - viewStart);
+    const flags = new Uint8Array(n);
+    const sel = { start: Math.min(p.cursor, p.anchor), end: Math.max(p.cursor, p.anchor) + 1 };
+    const hasSel = p.cursor !== p.anchor;
+    if (hasSel) {
+      for (let o = Math.max(sel.start, viewStart); o < Math.min(sel.end, viewEnd); o++)
+        flags[o - viewStart] |= F_SEL;
+    }
+    if (p.matches.length) {
+      for (let i = lowerBound(p.matches, viewStart); i < p.matches.length; i++) {
+        const m = p.matches[i];
+        if (m.offset >= viewEnd) break;
+        const f = i === p.currentMatch ? F_CUR_MATCH : F_MATCH;
+        for (let o = Math.max(m.offset, viewStart); o < Math.min(m.offset + m.len, viewEnd); o++)
+          flags[o - viewStart] |= f;
       }
-      const f = sp.kind === "modified" ? F_MOD : F_INS;
-      for (let o = Math.max(sp.start, viewStart); o < Math.min(sp.end, viewEnd); o++)
-        flags[o - viewStart] |= f;
     }
-  }
-  const curByte = cache.byte(p.cursor);
-  if (s.highlightSame && curByte !== undefined) {
-    for (let o = viewStart; o < viewEnd; o++)
-      if (o !== p.cursor && cache.byte(o) === curByte) flags[o - viewStart] |= F_SAME;
-  }
-  deletions = deletions.filter((d, i, a) => a.indexOf(d) === i);
-  for (const r of p.extraSel ?? []) {
-    for (let o = Math.max(r.start, viewStart); o < Math.min(r.end, viewEnd); o++)
-      flags[o - viewStart] |= F_SEL;
-  }
-  const regions = (p.regions ?? []).filter((r) => r.end > viewStart && r.start < viewEnd);
-  const pins = (p.pins ?? []).filter((x) => x.offset >= viewStart && x.offset <= viewEnd);
+    let deletions: number[] = [];
+    if (s.highlightChanges && s.layers.changes) {
+      const spans: ChangeSpan[] = cache.changes(viewStart, viewEnd);
+      for (const sp of spans) {
+        if (sp.kind === "deleted") {
+          if (sp.start >= viewStart && sp.start <= viewEnd) deletions.push(sp.start);
+          continue;
+        }
+        const f = sp.kind === "modified" ? F_MOD : F_INS;
+        for (let o = Math.max(sp.start, viewStart); o < Math.min(sp.end, viewEnd); o++)
+          flags[o - viewStart] |= f;
+      }
+    }
+    const curByte = cache.byte(p.cursor);
+    if (s.highlightSame && curByte !== undefined) {
+      for (let o = viewStart; o < viewEnd; o++)
+        if (o !== p.cursor && cache.byte(o) === curByte) flags[o - viewStart] |= F_SAME;
+    }
+    deletions = deletions.filter((d, i, a) => a.indexOf(d) === i);
+    for (const r of p.extraSel ?? []) {
+      for (let o = Math.max(r.start, viewStart); o < Math.min(r.end, viewEnd); o++)
+        flags[o - viewStart] |= F_SEL;
+    }
+    const regions = (p.regions ?? []).filter((r) => r.end > viewStart && r.start < viewEnd);
+    const pins = (p.pins ?? []).filter((x) => x.offset >= viewStart && x.offset <= viewEnd);
+    return { viewStart, viewEnd, flags, deletions, regions, pins };
+  });
 
   const cursorRow = Math.floor(p.cursor / l.bpr);
   const cursorCol = p.cursor % l.bpr;
@@ -307,11 +330,17 @@ export function renderGrid(p: RenderInput): void {
   }
 
   const widthAll = Math.max(p.width + p.scrollX, l.totalW);
-  for (let r = 0; r < rows; r++) {
-    const row = first + r;
-    if (row >= totalRows) break;
+  for (let r = 0; r < infos.length; r++) {
+    const info = infos[r];
     const y = r * rowH - frac;
-    const rowOff = row * l.bpr;
+    if (info.kind === "fold") {
+      drawFold(ctx, info.fold, y, rowH, widthAll, l, pal);
+      continue;
+    }
+    const { viewStart, viewEnd, flags, deletions, regions, pins } = layerData[segOf[r]];
+    void viewStart;
+    const rowOff = info.offset;
+    const row = rowOff / l.bpr;
     if (s.zebra && row % 2 === 1) {
       ctx.fillStyle = pal.zebra;
       ctx.fillRect(0, y, widthAll, rowH);
@@ -514,6 +543,35 @@ function ruleColor(rules: Settings["colorRules"], v: number): string | null {
   for (const r of rules)
     if (v >= Math.min(r.from, r.to) && v <= Math.max(r.from, r.to)) return r.color;
   return null;
+}
+
+function drawFold(
+  ctx: CanvasRenderingContext2D,
+  f: Fold,
+  y: number,
+  rowH: number,
+  width: number,
+  l: GridLayout,
+  pal: Palette,
+) {
+  ctx.fillStyle = withAlpha(pal.acc, 0.08);
+  ctx.fillRect(0, y + 2, width, rowH - 4);
+  ctx.fillStyle = pal.acc;
+  ctx.fillRect(0, y + 2, 3, rowH - 4);
+  ctx.fillStyle = pal.muted;
+  ctx.textAlign = "left";
+  const size = f.end - f.start;
+  const human =
+    size >= 1 << 20
+      ? `${(size / (1 << 20)).toFixed(1)} МБ`
+      : size >= 1024
+        ? `${(size / 1024).toFixed(1)} КБ`
+        : `${size} Б`;
+  ctx.fillText(
+    `⋯  свёрнуто 0x${f.start.toString(16).toUpperCase()}–0x${f.end.toString(16).toUpperCase()} · ${human} · клик — развернуть`,
+    l.hexX || l.padX,
+    y + rowH / 2,
+  );
 }
 
 function mid0(y: number, rowH: number) {

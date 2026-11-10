@@ -422,6 +422,8 @@ export const api = {
   ) => invoke<Planned[]>("replace_plan", { id, query, scope, replacement, max: max ?? null }),
   replaceApply: (id: number, plan: { offset: number; len: number; new: number[] }[]) =>
     invoke<EditResult>("replace_apply", { id, plan }),
+  findRuns: (id: number, minLen: number, max: number) =>
+    invoke<{ start: number; end: number; byte: number }[]>("find_runs", { id, minLen, max }),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
   writeTextFile: (path: string, content: string) =>
     invoke<void>("write_text_file", { path, content }),

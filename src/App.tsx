@@ -4,13 +4,13 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef } from "react";
 import { Banner } from "./components/Banner";
 import { Dialogs } from "./components/dialogs/Dialogs";
+import { EditorArea } from "./components/EditorArea";
 import { FindBar } from "./components/FindBar";
 import { ContextMenu, GotoDialog, Palette, ToastView } from "./components/Overlays";
 import { Sidebar } from "./components/Sidebar";
 import { StartScreen } from "./components/StartScreen";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
-import { HexGrid } from "./grid/HexGrid";
 import { api } from "./ipc/api";
 import { resolve, runCommand } from "./lib/commands";
 import { chordOf, isMac } from "./lib/keys";
@@ -245,7 +245,7 @@ export function App() {
           {ui.find && <FindBar key={`f${tab.id}`} tab={tab} />}
           <main className="body">
             {layout.left.length > 0 && <Sidebar side="left" tab={tab} />}
-            <HexGrid key={tab.id} tab={tab} />
+            <EditorArea tab={tab} />
             {layout.right.length > 0 && <Sidebar side="right" tab={tab} />}
           </main>
           <StatusBar tab={tab} />

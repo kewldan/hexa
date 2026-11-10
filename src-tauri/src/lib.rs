@@ -149,6 +149,7 @@ pub fn run() {
             commands::doc::inspect_ext,
             commands::doc::replace_plan,
             commands::doc::replace_apply,
+            commands::doc::find_runs,
             commands::tools::job_cancel,
             commands::tools::search_next,
             commands::tools::search_all,

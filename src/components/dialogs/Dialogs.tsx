@@ -13,7 +13,7 @@ import { evalExpr } from "../../lib/expr";
 import { fmtSize, groupDec, hexN, parseHexBytes, relTime } from "../../lib/format";
 import { renderMarkdown } from "../../lib/markdown";
 import * as A from "../../state/actions";
-import { selection, selectionOrByte, useActiveTab } from "../../state/tabs";
+import { selection, selectionOrByte, useActiveTab, useTabs } from "../../state/tabs";
 import { closeDialog, type Dialog, toast, useUi } from "../../state/ui";
 import { MARK_COLORS } from "../panels/MarksPanel";
 import { SettingsDialog } from "./Settings";
@@ -802,6 +802,47 @@ function ReplacePreviewDialog({ plan }: { plan: Planned[] }) {
   );
 }
 
+function PickTabDialog() {
+  const tabs = useTabs((st) => st.tabs);
+  const cur = useActiveTab();
+  const others = tabs.filter((t) => t.id !== cur?.id);
+  return (
+    <Modal
+      title="Открыть рядом"
+      footer={
+        <button type="button" className="btn" onClick={closeDialog}>
+          Отмена
+        </button>
+      }
+    >
+      {others.length === 0 ? (
+        <div className="note">Откройте второй файл, чтобы показать его рядом.</div>
+      ) : (
+        <div className="opt-list">
+          {others.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              className="opt"
+              onClick={() => {
+                closeDialog();
+                if (cur) useUi.getState().set({ compare: { a: cur.id, b: t.id, sync: true } });
+              }}
+            >
+              <span />
+              <span>
+                <b>{t.info.name}</b>
+                <span className="note"> · {fmtSize(t.info.len)}</span>
+              </span>
+              <span />
+            </button>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function MarkDialog({ mark }: { mark: Mark }) {
   const tab = useActiveTab();
   const [m, setM] = useState(mark);
@@ -1185,6 +1226,8 @@ export function Dialogs() {
       return <PropsDialog />;
     case "replacePreview":
       return <ReplacePreviewDialog plan={d.plan} />;
+    case "pickTab":
+      return <PickTabDialog />;
     case "mark":
       return <MarkDialog mark={d.mark} />;
     case "moveBlock":
