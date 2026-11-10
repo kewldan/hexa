@@ -20,8 +20,15 @@ tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
 clipboard-rs = { version = "0.3.5", default-features = false, features = ["wayland"] }
+getrandom = "0.4.3"
+hexa-analysis = { path = "../crates/hexa-analysis" }
 hexa-core = { path = "../crates/hexa-core" }
 hexa-diff = { path = "../crates/hexa-diff" }
+hexa-net = { path = "../crates/hexa-net" }
+hexa-proc = { path = "../crates/hexa-proc" }
+hexa-re = { path = "../crates/hexa-re" }
+hexa-script = { path = "../crates/hexa-script" }
+hexa-sys = { path = "../crates/hexa-sys" }
 hexa-transform = { path = "../crates/hexa-transform" }
 notify = "8.2.2"
 parking_lot = "0.13.0"

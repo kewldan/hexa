@@ -110,7 +110,7 @@ test("panels can be moved to the other side", async ({ page }) => {
 
 test("settings switch the theme and persist", async ({ page }) => {
   await page.keyboard.press(`${mod}+,`);
-  await page.getByRole("combobox").first().selectOption("contrast");
+  await page.locator(".dlg").getByRole("combobox").first().selectOption("contrast");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "contrast");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(600); // settings are saved with a debounce
@@ -158,4 +158,32 @@ test("two tabs are compared side by side", async ({ page }) => {
   await expect(page.locator(".editor-col")).toHaveCount(2);
   await page.keyboard.press("F7");
   await expect(page.locator(".diff-bar")).toContainText("#1/1");
+});
+
+test("analysis and strings panels show results", async ({ page }) => {
+  await page.locator('.side-tab[aria-label="Анализ"]').click();
+  await expect(page.locator(".anl-cap").first()).toContainText("Энтропия");
+  await expect(page.locator(".kv")).toContainText("бит/байт");
+  await page.locator('.side-tab[aria-label="Строки"]').click();
+  await page.locator(".ph", { hasText: "Строки" }).getByRole("button", { name: "Найти" }).click();
+  await expect(page.locator(".str-row").first()).toBeVisible();
+});
+
+test("disassembler panel lists instructions at the cursor", async ({ page }) => {
+  await page.locator('.side-tab[aria-label="Код"]').click();
+  await expect(page.locator(".dis-row").first()).toContainText(".byte");
+  await page.getByRole("tab", { name: "Файл" }).click();
+  await expect(page.locator(".empty")).toContainText("Не исполняемый файл");
+});
+
+test("calculator evaluates and help lists commands", async ({ page }) => {
+  await page.keyboard.press(`${mod}+k`);
+  await page.getByRole("textbox", { name: "Команда" }).fill("Калькулятор");
+  await page.getByRole("textbox", { name: "Команда" }).press("Enter");
+  await page.getByRole("textbox", { name: "Выражение" }).fill("0x10 * 2 + 0b1");
+  await expect(page.locator(".calc-kv")).toContainText("0x21");
+  await page.locator(".dlg-f").getByRole("button", { name: "Закрыть" }).click();
+  await page.keyboard.press("F1");
+  await page.getByRole("textbox", { name: "Найти команду" }).fill("калькулятор");
+  await expect(page.locator(".help-row")).toHaveCount(1);
 });

@@ -10,6 +10,7 @@ import * as A from "../state/actions";
 import { useSettings } from "../state/settings";
 import { hasSelection, selection, type Tab } from "../state/tabs";
 import { openDialog, toast, useUi } from "../state/ui";
+import { Announcer } from "./Announcer";
 
 export function StatusBar({ tab }: { tab: Tab }) {
   const s = useSettings((st) => st.s);
@@ -37,6 +38,7 @@ export function StatusBar({ tab }: { tab: Tab }) {
 
   return (
     <footer className="sb">
+      <Announcer tab={tab} />
       <button
         type="button"
         className="sbi"

@@ -173,7 +173,7 @@ export type SearchEvent =
 export interface AlgoInfo {
   id: string;
   name: string;
-  group: "checksum" | "crc" | "crypto";
+  group: "checksum" | "crc" | "crypto" | "fast" | "fuzzy";
 }
 
 export interface CrcParams {

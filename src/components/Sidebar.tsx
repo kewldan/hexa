@@ -8,10 +8,12 @@ import { AnalysisPanel } from "./panels/AnalysisPanel";
 import { ConsolePanel } from "./panels/ConsolePanel";
 import { DiffPanel } from "./panels/DiffPanel";
 import { DisasmPanel } from "./panels/DisasmPanel";
+import { DiskPanel } from "./panels/DiskPanel";
 import { HashPanel } from "./panels/HashPanel";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { InspectorPanel } from "./panels/InspectorPanel";
 import { MarksPanel } from "./panels/MarksPanel";
+import { MemoryPanel } from "./panels/MemoryPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { StringsPanel } from "./panels/StringsPanel";
 import { StructurePanel } from "./panels/StructurePanel";
@@ -30,6 +32,8 @@ export const TITLES: Record<PanelId, string> = {
   disasm: "Код",
   strings: "Строки",
   console: "Консоль",
+  disk: "Диск",
+  memory: "Память",
 };
 
 const ICONS: Record<PanelId, () => React.ReactElement> = {
@@ -45,6 +49,8 @@ const ICONS: Record<PanelId, () => React.ReactElement> = {
   disasm: Icon.code,
   strings: Icon.list,
   console: Icon.terminal,
+  disk: Icon.disk,
+  memory: Icon.chip,
 };
 
 const PANELS: Record<PanelId, (p: { tab: Tab }) => React.ReactElement | null> = {
@@ -60,6 +66,8 @@ const PANELS: Record<PanelId, (p: { tab: Tab }) => React.ReactElement | null> = 
   disasm: DisasmPanel,
   strings: StringsPanel,
   console: ConsolePanel,
+  disk: DiskPanel,
+  memory: MemoryPanel,
 };
 
 /** Moves a panel to a side and shows it there (UI-01). */

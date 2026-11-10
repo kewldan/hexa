@@ -1,0 +1,141 @@
+.dotc {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.anl-tabs {
+  margin: 0 4px 8px;
+}
+.anl-tabs button.on {
+  color: var(--ink);
+  background: var(--segon);
+  border-radius: 6px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.14),
+    0 0 0 0.5px var(--line);
+}
+.anl-tabs button {
+  padding: 0 4px;
+  font-size: 11.5px;
+}
+.anl-cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 4px;
+}
+.anl-canvas {
+  display: block;
+  width: calc(100% - 12px);
+  margin: 0 6px;
+  border-radius: 6px;
+  background: var(--field);
+  cursor: crosshair;
+  animation: fadeUp 0.3s var(--ease) both;
+}
+.anl-canvas.sq {
+  aspect-ratio: 1;
+  height: auto;
+}
+.anl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.anl-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.anl-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.str-row {
+  display: grid;
+  grid-template-columns: 74px 36px minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 8px;
+  font-size: 12px;
+  text-align: left;
+  border-radius: 4px;
+  width: 100%;
+}
+.str-row:hover {
+  background: var(--hov);
+}
+.str-row .mono {
+  color: var(--muted);
+}
+.str-row .enc {
+  font-size: 10px;
+  color: var(--muted);
+}
+.str-row .tx {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+.dis {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  padding: 0 4px;
+}
+.dis-row {
+  display: grid;
+  grid-template-columns: 70px 112px 52px minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+  padding: 1px 4px;
+  border-radius: 4px;
+  cursor: default;
+}
+.dis-row:hover {
+  background: var(--hov);
+}
+.dis-row.cur {
+  background: color-mix(in srgb, var(--acc) 15%, transparent);
+}
+.dis-row.data {
+  opacity: 0.6;
+}
+.dis-row .a,
+.dis-row .b {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dis-row .m {
+  font-family: var(--mono);
+  color: var(--kf, var(--acc));
+}
+.dis-row .o {
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.link {
+  color: var(--acc);
+  text-decoration: underline dotted;
+  font: inherit;
+}
+.dis-edit {
+  padding: 8px 6px;
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+}
+.fold-h {
+  width: 100%;
+  text-align: left;
+}

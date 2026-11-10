@@ -1,5 +1,11 @@
+pub mod analysis;
 pub mod app;
 pub mod compare;
 pub mod doc;
+pub mod files;
+pub mod memory;
+pub mod re;
+pub mod script;
+pub mod sources;
 pub mod tools;
 pub mod transform;

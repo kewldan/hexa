@@ -17,10 +17,19 @@ export type Dialog =
   | { kind: "merge3" }
   | { kind: "patchCreate" }
   | { kind: "patchApply"; path?: string }
+  | { kind: "exportAs" }
+  | { kind: "calc" }
+  | { kind: "help" }
+  | { kind: "clipHistory" }
+  | { kind: "print" }
+  | { kind: "findInFiles" }
+  | { kind: "split" }
+  | { kind: "viewLink" }
   | { kind: "replacePreview"; plan: import("../ipc/api").Planned[] }
   | { kind: "mark"; mark: import("../ipc/api").Mark }
   | { kind: "confirm"; title: string; body: string; actions: ConfirmAction[] }
   | { kind: "recovery" }
+  | import("../components/dialogs/SourceDialogs").SourceDialog
   | { kind: "about" };
 
 export interface ConfirmAction {

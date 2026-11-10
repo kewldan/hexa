@@ -1,10 +1,13 @@
 // Command registry: every action reachable from keys, palette and menus (UI-02, UI-03).
+
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as A from "../state/actions";
 import * as D from "../state/diff";
 import { type KeymapPreset, settings, useSettings } from "../state/settings";
 import { activeTab, hasSelection, selectionOrByte } from "../state/tabs";
 import { openDialog, toast, useUi } from "../state/ui";
+import { normalizeBinding } from "./keys";
+import { SOURCE_COMMANDS } from "./sourceCommands";
 
 export interface Command {
   id: string;
@@ -953,11 +956,137 @@ export const COMMANDS: Command[] = [
   },
   { id: "view.diff", title: "Панель сравнения", group: "Вид", run: () => showPanel("diff") },
   {
+    id: "file.exportAs",
+    title: "Экспорт: Intel HEX, S-Record, xxd, HTML, C…",
+    group: "Файл",
+    doc: true,
+    run: () => openDialog({ kind: "exportAs" }),
+  },
+  {
+    id: "file.importFirmware",
+    title: "Импорт прошивки (Intel HEX, S-Record, TI-TXT, Tek)…",
+    group: "Файл",
+    run: () => import("../components/dialogs/IoDialogs").then((m) => m.importFirmware()),
+  },
+  {
+    id: "file.importDump",
+    title: "Импорт текстового дампа (xxd, hexdump, od)…",
+    group: "Файл",
+    run: () => import("../components/dialogs/IoDialogs").then((m) => m.importDump()),
+  },
+  { id: "view.analysis", title: "Панель анализа", group: "Вид", run: () => showPanel("analysis") },
+  { id: "view.strings", title: "Панель строк", group: "Вид", run: () => showPanel("strings") },
+  {
+    id: "tools.calc",
+    title: "Калькулятор и системы счисления",
+    group: "Инструменты",
+    hint: "BigInt, hex/dec/oct/bin, знаковые и float-представления",
+    run: () => openDialog({ kind: "calc" }),
+  },
+  {
+    id: "help.commands",
+    title: "Справка по командам",
+    group: "Справка",
+    hint: "все команды с сочетаниями клавиш",
+    run: () => openDialog({ kind: "help" }),
+  },
+  {
+    id: "help.update",
+    title: "Проверить обновления",
+    group: "Справка",
+    run: () => import("../components/dialogs/ToolDialogs").then((m) => m.checkUpdates(true)),
+  },
+  {
+    id: "edit.clipHistory",
+    title: "История буфера обмена…",
+    group: "Правка",
+    hint: "последние 20 копирований этой сессии",
+    run: () => openDialog({ kind: "clipHistory" }),
+  },
+  {
+    id: "file.print",
+    title: "Печать…",
+    group: "Файл",
+    doc: true,
+    run: () => openDialog({ kind: "print" }),
+  },
+  {
+    id: "search.inFiles",
+    title: "Найти в файлах и вкладках…",
+    group: "Поиск",
+    run: () => openDialog({ kind: "findInFiles" }),
+  },
+  {
+    id: "file.split",
+    title: "Разделить файл на части…",
+    group: "Файл",
+    doc: true,
+    run: () => openDialog({ kind: "split" }),
+  },
+  {
+    id: "file.concat",
+    title: "Склеить файлы…",
+    group: "Файл",
+    run: () => import("../components/dialogs/ToolDialogs").then((m) => m.concatFiles()),
+  },
+  {
+    id: "file.compareDisk",
+    title: "Сравнить с версией на диске",
+    group: "Сравнение",
+    doc: true,
+    run: () => A.compareWithDisk(),
+  },
+  {
+    id: "view.shareLink",
+    title: "Поделиться видом (ссылка)…",
+    group: "Вид",
+    doc: true,
+    run: () => openDialog({ kind: "viewLink" }),
+  },
+  // Scripts (SCR-01…04)
+  {
+    id: "script.console",
+    title: "Открыть консоль Lua",
+    group: "Скрипты",
+    run: () => showPanel("console"),
+  },
+  {
+    id: "script.runFile",
+    title: "Запустить скрипт из файла…",
+    group: "Скрипты",
+    run: () => import("./script").then((m) => m.runScriptFile()),
+  },
+  {
+    id: "script.stop",
+    title: "Остановить скрипт",
+    group: "Скрипты",
+    run: () => import("./script").then((m) => m.stopScript()),
+  },
+  {
+    id: "macro.record",
+    title: "Начать или остановить запись макроса",
+    group: "Скрипты",
+    run: () => import("./script").then((m) => m.toggleRecording()),
+  },
+  {
+    id: "macro.replay",
+    title: "Повторить последний макрос",
+    group: "Скрипты",
+    run: () => import("./script").then((m) => m.replayLastMacro()),
+  },
+  {
+    id: "script.reloadPlugins",
+    title: "Перезагрузить плагины",
+    group: "Скрипты",
+    run: () => import("./script").then((m) => m.reloadPlugins()),
+  },
+  {
     id: "help.about",
     title: "О программе",
     group: "Справка",
     run: () => openDialog({ kind: "about" }),
   },
+  ...SOURCE_COMMANDS,
 ];
 
 function toggleLayer(k: keyof ReturnType<typeof settings>["layers"]) {
@@ -1095,6 +1224,11 @@ const BASE: Keymap = {
   "view.settings": ["Mod+,"],
   "marks.add": ["Mod+D"],
   "diff.next": ["F7"],
+  "help.commands": ["F1"],
+  "tools.calc": ["Alt+Mod+K"],
+  "edit.clipHistory": ["Alt+Mod+V"],
+  "file.print": ["Mod+P"],
+  "search.inFiles": ["Shift+Mod+F"],
   "diff.prev": ["Shift+F7"],
   "view.foldSelection": ["Alt+Mod+["],
   "view.unfoldAll": ["Alt+Mod+]"],
@@ -1103,6 +1237,8 @@ const BASE: Keymap = {
   "marks.next": ["F2"],
   "marks.prev": ["Shift+F2"],
   "file.props": ["Alt+Mod+P"],
+  // chordOf() emits modifiers in the order Ctrl, Mod, Alt, Shift.
+  "macro.record": ["Mod+Shift+R"],
 };
 
 const PRESETS: Record<KeymapPreset, Keymap> = {
@@ -1165,6 +1301,7 @@ export function bindings(): Keymap {
     // Ctrl+Tab style bindings already use Mod on other platforms.
   }
   for (const [id, keys] of Object.entries(st.keyOverrides)) out[id] = keys;
+  for (const [id, keys] of Object.entries(out)) out[id] = keys.map(normalizeBinding);
   return out;
 }
 
@@ -1188,6 +1325,9 @@ export function resolve(seq: string): { id?: string; prefix: boolean } {
   return { prefix };
 }
 
+/** Observers of executed commands (macro recording, SCR-03). */
+export const commandHooks: { onRun?: (id: string) => void } = {};
+
 export function runCommand(id: string): boolean {
   const c = commandById(id) ?? layoutCommands().find((l) => l.id === id);
   if (!c) return false;
@@ -1197,6 +1337,7 @@ export function runCommand(id: string): boolean {
     toast("Документ только для чтения — нажмите Insert, чтобы править", true);
     return true;
   }
+  commandHooks.onRun?.(id);
   Promise.resolve(c.run()).catch(A.report);
   return true;
 }

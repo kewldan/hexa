@@ -19,7 +19,9 @@ export type PanelId =
   | "transform"
   | "disasm"
   | "strings"
-  | "console";
+  | "console"
+  | "disk"
+  | "memory";
 export type KeymapPreset = "hexa" | "hxd" | "010" | "vim" | "emacs";
 
 export interface Layout {
@@ -96,6 +98,10 @@ export interface Settings {
   savedQueries: { label: string; kind: string; text: string }[];
   /** Saved transformation recipes (XFRM-10). */
   recipes: import("../ipc/api").Recipe[];
+  /** Architecture of the inspector's instruction row (INSP-14); empty hides it. */
+  inspectorArch: string;
+  /** Colour-vision-safe highlight colours (UI-18). */
+  colorSafe: boolean;
   queryHistory: string[];
   /** Named settings snapshots (UI-11). */
   profiles: Record<string, Partial<Settings>>;
@@ -112,7 +118,7 @@ export interface Settings {
 
 export const DEFAULT_LAYOUT: Layout = {
   left: ["structure", "marks", "history", "hashes", "results", "diff"],
-  right: ["inspector", "analysis", "transform", "disasm", "strings", "console"],
+  right: ["inspector", "analysis", "transform", "disasm", "strings", "console", "disk", "memory"],
   leftOpen: true,
   rightOpen: true,
   leftWidth: 272,
@@ -173,6 +179,8 @@ export const DEFAULTS: Settings = {
   tblTables: {},
   savedQueries: [],
   recipes: [],
+  inspectorArch: "",
+  colorSafe: false,
   queryHistory: [],
   profiles: {},
   checkUpdates: false,

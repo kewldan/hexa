@@ -2,6 +2,8 @@
 // and by end-to-end tests. It keeps one plain byte array per document with a
 // linear undo stack — enough to exercise the UI, not a model of the core.
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
+import { mockSources } from "./mockSources";
+import { SCRIPT_COMMANDS, scriptMock } from "./scriptMock";
 
 interface MockDoc {
   id: number;
@@ -595,6 +597,88 @@ export function installMock() {
             repeating: [],
             sizes: [],
           };
+        case "anl_overview": {
+          const d = doc();
+          const bytes = d.data.slice(a.start, a.end);
+          const counts = new Array(256).fill(0);
+          for (const b of bytes) counts[b]++;
+          const n = Math.max(1, bytes.length);
+          const entropy = -counts.reduce((s, c) => (c ? s + (c / n) * Math.log2(c / n) : s), 0);
+          return {
+            histogram: {
+              counts,
+              total: bytes.length,
+              distinct: counts.filter(Boolean).length,
+              entropy,
+              mean: bytes.reduce((s, b) => s + b, 0) / n,
+              chiSquare: 0,
+              mostCommon: counts.indexOf(Math.max(...counts)),
+              leastCommon: null,
+            },
+            entropy: {
+              start: a.start,
+              window: 256,
+              step: 256,
+              values: Array.from({ length: 16 }, () => entropy),
+            },
+            regions: [
+              { start: a.start, end: a.end, kind: "data", detail: null, confidence: 1, entropy },
+            ],
+          };
+        }
+        case "anl_strings": {
+          const d = doc();
+          const out: { offset: number; len: number; encoding: string; text: string }[] = [];
+          let s = -1;
+          for (let i = a.start; i <= a.end; i++) {
+            const b = i < a.end ? d.data[i] : 0;
+            const ok = b >= 0x20 && b < 0x7f;
+            if (ok && s < 0) s = i;
+            if (!ok && s >= 0) {
+              if (i - s >= (a.opts.minLen ?? 4))
+                out.push({
+                  offset: s,
+                  len: i - s,
+                  encoding: "ascii",
+                  text: String.fromCharCode(...d.data.slice(s, i)),
+                });
+              s = -1;
+            }
+          }
+          return { strings: out, truncated: false };
+        }
+        case "anl_embedded":
+          return [];
+        case "re_info":
+          return { info: null, error: "not an executable", findings: [] };
+        case "re_arches":
+          return [{ arch: "x86_64", label: "x86-64", canAssemble: true, hasNop: true }];
+        case "re_disasm": {
+          const d = doc();
+          return Array.from(d.data.slice(a.offset, a.offset + 16)).map((b, i) => ({
+            address: a.address + i,
+            size: 1,
+            bytes: [b],
+            mnemonic: ".byte",
+            operands: `0x${b.toString(16).padStart(2, "0")}`,
+            groups: [],
+            branchTarget: null,
+            memoryReference: null,
+            isData: true,
+          }));
+        }
+        case "re_tools":
+          return [];
+        case "app_info":
+          return { version: "0.1.0", portable: false, configDir: "/mock" };
+        case "app_print":
+          return null;
+        case "files_search":
+          setTimeout(
+            () => a.channel.onmessage({ type: "done", files: 0, hits: 0, truncated: false }),
+            10,
+          );
+          return 3;
         case "find_runs": {
           const d = doc();
           const runs: { start: number; end: number; byte: number }[] = [];
@@ -663,10 +747,15 @@ export function installMock() {
           return null;
         case "plugin:clipboard-manager|read_text":
           return clipText;
-        default:
+        default: {
+          const sources = mockSources(cmd, a);
+          if (sources !== undefined) return sources;
+          if (SCRIPT_COMMANDS.has(cmd))
+            return scriptMock(cmd, a, (id) => docs.get(id)?.data ?? null);
           if (cmd.startsWith("plugin:")) return null;
           console.warn("mock: unhandled", cmd, a);
           return null;
+        }
       }
     },
     { shouldMockEvents: true },

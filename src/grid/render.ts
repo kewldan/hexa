@@ -451,6 +451,12 @@ export function renderGrid(p: RenderInput): void {
           value = (value << 8n) | BigInt(b);
         }
         const cx = x + l.cellW / 2;
+        if (value === null && cache.unreadable(o)) {
+          ctx.textAlign = "center";
+          ctx.fillStyle = pal.muted;
+          ctx.fillText("??", cx, mid);
+          continue;
+        }
         if (value === null) {
           ctx.fillStyle = pal.line;
           ctx.fillRect(cx - l.cw * 0.6, mid - 1, l.cw * 1.2, 2);

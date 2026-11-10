@@ -7,6 +7,7 @@ import { Dialogs } from "./components/dialogs/Dialogs";
 import { EditorArea } from "./components/EditorArea";
 import { FindBar } from "./components/FindBar";
 import { ContextMenu, GotoDialog, Palette, ToastView } from "./components/Overlays";
+import { ScriptBridge } from "./components/ScriptBridge";
 import { Sidebar } from "./components/Sidebar";
 import { StartScreen } from "./components/StartScreen";
 import { StatusBar } from "./components/StatusBar";
@@ -257,6 +258,7 @@ export function App() {
       {ui.goto && tab && <GotoDialog />}
       <ContextMenu />
       <Dialogs />
+      <ScriptBridge />
       <ToastView />
       {ui.dragOver && tab && <div className="drag-veil">Отпустите, чтобы открыть</div>}
     </div>

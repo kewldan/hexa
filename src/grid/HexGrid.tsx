@@ -1,4 +1,5 @@
 // The hex grid: canvas for the bytes, DOM overlay for the animated cursor.
+
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import { markColor } from "../components/panels/MarksPanel";
 import { keysFor } from "../lib/commands";
+import { safeColor } from "../lib/cvd";
 import { hexN, offsetWidth } from "../lib/format";
 import { displayKeys, isMac } from "../lib/keys";
 import { renderMarkdown } from "../lib/markdown";
@@ -230,7 +232,7 @@ export function HexGrid({ tab, pane = 0 }: { tab: Tab; pane?: number }) {
     const pins: { offset: number; color: string; annotation: boolean }[] = [];
     if (s.layers.marks) {
       for (const m of tab.marks) {
-        const c = markColor(m.color);
+        const c = s.colorSafe ? safeColor(markColor(m.color)) : markColor(m.color);
         if (m.kind !== "label" && m.end > m.start)
           regions.push({ start: m.start, end: m.end, color: withAlpha(c, 0.2) });
         pins.push({ offset: m.start, color: c, annotation: m.kind === "annotation" });
@@ -239,10 +241,12 @@ export function HexGrid({ tab, pane = 0 }: { tab: Tab; pane?: number }) {
     for (const [name, list] of Object.entries(overlayLayers ?? {})) {
       const key = name as keyof typeof s.layers;
       if (key in s.layers && !s.layers[key]) continue;
-      regions.push(...list);
+      regions.push(
+        ...(s.colorSafe ? list.map((r) => ({ ...r, color: safeColor(r.color) })) : list),
+      );
     }
     return { regions, pins };
-  }, [tab.marks, overlayLayers, s.layers]);
+  }, [tab.marks, overlayLayers, s.layers, s.colorSafe]);
 
   // Draw.
   useEffect(() => {

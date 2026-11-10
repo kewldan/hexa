@@ -14,6 +14,8 @@ export class DocCache {
   readonly id: number;
   private pages = new Map<number, Uint8Array>();
   private pending = new Set<number>();
+  /** Pages that failed to read (unmapped process memory), shown as `??`. */
+  private bad = new Set<number>();
   private listeners = new Set<Listener>();
   private changeWin: { start: number; end: number; spans: ChangeSpan[]; gen: number } | null = null;
   private changeReq: { start: number; end: number; gen: number } | null = null;
@@ -40,6 +42,11 @@ export class DocCache {
     if (!page) return undefined;
     const i = offset % PAGE;
     return i < page.length ? page[i] : undefined;
+  }
+
+  /** The byte at `offset` could not be read (e.g. unmapped memory). */
+  unreadable(offset: number): boolean {
+    return this.bad.has(Math.floor(offset / PAGE));
   }
 
   /** Copies `[start, end)` into `out`; returns false when something is missing. */
@@ -87,10 +94,16 @@ export class DocCache {
         })
         .catch(() => {
           for (let p = from; p <= to; p++) this.pending.delete(p);
+          if (gen !== this.gen) return;
+          // Narrow a failed run down to the pages that cannot be read.
+          if (from === to) {
+            this.bad.add(from);
+            this.emit();
+          } else for (let p = from; p <= to; p++) this.ensure(p * PAGE, (p + 1) * PAGE);
         });
     };
     for (let p = first; p <= lastPage; p++) {
-      if (this.pages.has(p) || this.pending.has(p)) {
+      if (this.pages.has(p) || this.pending.has(p) || this.bad.has(p)) {
         flush(p - 1);
       } else if (runStart < 0) {
         runStart = p;
@@ -127,12 +140,14 @@ export class DocCache {
     }
     this.gen++;
     this.pending.clear();
+    this.bad.clear();
     this.emit();
   }
 
   clear() {
     this.pages.clear();
     this.pending.clear();
+    this.bad.clear();
     this.changeWin = null;
     this.gen++;
     this.emit();

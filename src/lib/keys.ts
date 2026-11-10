@@ -17,6 +17,22 @@ const KEY_NAMES: Record<string, string> = {
   _: "Minus",
 };
 
+const MOD_ORDER = ["Ctrl", "Mod", "Meta", "Alt", "Shift"];
+
+/** Puts modifiers in the order `chordOf` produces, so `Shift+Mod+S` matches. */
+export function normalizeBinding(binding: string): string {
+  return binding
+    .split(" ")
+    .map((chord) => {
+      const parts = chord.split("+");
+      // "Mod+Plus" style keys: the last part is the key.
+      const key = parts.pop() ?? "";
+      const mods = parts.sort((a, b) => MOD_ORDER.indexOf(a) - MOD_ORDER.indexOf(b));
+      return [...mods, key].join("+");
+    })
+    .join(" ");
+}
+
 /** `Mod` is Cmd on macOS and Ctrl elsewhere; `Ctrl` is the real Control on macOS. */
 export function chordOf(e: KeyboardEvent): string {
   let key = KEY_NAMES[e.key] ?? e.key;

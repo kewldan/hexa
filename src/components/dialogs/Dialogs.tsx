@@ -18,7 +18,18 @@ import { selection, selectionOrByte, useActiveTab, useTabs } from "../../state/t
 import { closeDialog, type Dialog, toast, useUi } from "../../state/ui";
 import { MARK_COLORS } from "../panels/MarksPanel";
 import { Merge3Dialog, PatchApplyDialog, PatchCreateDialog } from "./CompareDialogs";
+import { ExportDialog } from "./IoDialogs";
 import { SettingsDialog } from "./Settings";
+import { isSourceDialog, SourceDialogs } from "./SourceDialogs";
+import {
+  CalcDialog,
+  ClipHistoryDialog,
+  FindInFilesDialog,
+  HelpDialog,
+  PrintDialog,
+  SplitDialog,
+  ViewLinkDialog,
+} from "./ToolDialogs";
 
 export function Modal({
   title,
@@ -1213,6 +1224,7 @@ function AboutDialog() {
 export function Dialogs() {
   const d = useUi((u) => u.dialog);
   if (!d) return null;
+  if (isSourceDialog(d)) return <SourceDialogs d={d} />;
   switch (d.kind) {
     case "newFile":
       return <NewFileDialog />;
@@ -1240,6 +1252,22 @@ export function Dialogs() {
       return <PatchCreateDialog />;
     case "patchApply":
       return <PatchApplyDialog path={d.path} />;
+    case "exportAs":
+      return <ExportDialog />;
+    case "calc":
+      return <CalcDialog />;
+    case "help":
+      return <HelpDialog />;
+    case "clipHistory":
+      return <ClipHistoryDialog />;
+    case "print":
+      return <PrintDialog />;
+    case "findInFiles":
+      return <FindInFilesDialog />;
+    case "split":
+      return <SplitDialog />;
+    case "viewLink":
+      return <ViewLinkDialog />;
     case "mark":
       return <MarkDialog mark={d.mark} />;
     case "moveBlock":

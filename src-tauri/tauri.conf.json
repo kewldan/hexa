@@ -12,7 +12,7 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost https://api.github.com"
     }
   },
   "bundle": {
@@ -30,11 +30,61 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["bin", "dat", "img", "rom", "dump", "hex"],
+        "ext": [
+          "bin",
+          "dat",
+          "img",
+          "rom",
+          "dump",
+          "dmp",
+          "raw"
+        ],
         "name": "Binary data",
         "description": "Binary file",
-        "role": "Editor"
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "hex",
+          "ihx",
+          "srec",
+          "s19",
+          "s28",
+          "s37"
+        ],
+        "name": "Firmware image",
+        "description": "Intel HEX or S-Record firmware",
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "ips",
+          "ups",
+          "bps",
+          "vcdiff",
+          "bsdiff"
+        ],
+        "name": "Binary patch",
+        "description": "Binary patch",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "hexaview"
+        ],
+        "name": "Hexa view",
+        "description": "Hexa view state",
+        "role": "Viewer",
+        "rank": "Owner"
       }
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
   }
 }

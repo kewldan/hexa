@@ -13,6 +13,8 @@ const GROUPS: Record<AlgoInfo["group"], string> = {
   checksum: "Контрольные суммы",
   crc: "CRC",
   crypto: "Криптохэши",
+  fast: "Быстрые некриптографические",
+  fuzzy: "Нечёткие (похожесть)",
 };
 
 export function HashPanel({ tab }: { tab: Tab }) {
@@ -113,7 +115,7 @@ export function HashPanel({ tab }: { tab: Tab }) {
             onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
           />
-          {(["checksum", "crc", "crypto"] as const).map((g) => (
+          {(["checksum", "crc", "crypto", "fast", "fuzzy"] as const).map((g) => (
             <div key={g}>
               <div className="pgh">{GROUPS[g]}</div>
               {shown

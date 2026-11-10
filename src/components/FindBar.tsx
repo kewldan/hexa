@@ -2,19 +2,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type NumType, type Query, type Replacement, type SeqItem } from "../ipc/api";
 import { groupDec, parseHexBytes } from "../lib/format";
+import { luaFindEnter } from "../lib/script";
 import * as A from "../state/actions";
 import { useSettings } from "../state/settings";
 import { selection, type Tab, useTabs } from "../state/tabs";
 import { openDialog, toast, useUi } from "../state/ui";
 import { Icon } from "./icons";
+import { LUA_PLACEHOLDER, LuaFindOptions } from "./LuaFind";
 
-type Kind = "hex" | "text" | "regex" | "number" | "seq";
+type Kind = "hex" | "text" | "regex" | "number" | "seq" | "lua";
 const KINDS: { id: Kind; label: string }[] = [
   { id: "hex", label: "Hex" },
   { id: "text", label: "Текст" },
   { id: "regex", label: "Regex" },
   { id: "number", label: "Число" },
   { id: "seq", label: "Посл." },
+  { id: "lua", label: "Lua" },
 ];
 const NUMS: NumType[] = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"];
 const TEXT_ENCODINGS = [
@@ -132,6 +135,8 @@ export function FindBar({ tab }: { tab: Tab }) {
         return { kind: "regex", pattern: q, unicode };
       case "seq":
         return parseSequence(text);
+      case "lua":
+        return null;
       case "number": {
         const [lo, hi] = text.split(/\s*(?:\.\.|…)\s*/);
         return {
@@ -148,6 +153,7 @@ export function FindBar({ tab }: { tab: Tab }) {
 
   // Incremental search (SRCH-15): all matches in the background, debounced.
   useEffect(() => {
+    if (kind === "lua") return; // Lua predicates run on Enter (SRCH-08).
     if (!query) {
       A.clearResults();
       setError("");
@@ -202,7 +208,8 @@ export function FindBar({ tab }: { tab: Tab }) {
     if (e.key === "Enter") {
       e.preventDefault();
       if (q.trim()) remember();
-      A.stepResult(e.shiftKey ? -1 : 1);
+      if (kind === "lua") luaFindEnter(tab, q, scopeNow(), e.shiftKey);
+      else A.stepResult(e.shiftKey ? -1 : 1);
     } else if (e.key === "Escape") {
       e.preventDefault();
       close();
@@ -219,7 +226,9 @@ export function FindBar({ tab }: { tab: Tab }) {
           ? "Регулярное выражение по байтам"
           : kind === "seq"
             ? "u32le=0x10, u16le=1..5, u8=*"
-            : "Значение или диапазон 10..20";
+            : kind === "lua"
+              ? LUA_PLACEHOLDER
+              : "Значение или диапазон 10..20";
 
   const idx = KINDS.findIndex((k) => k.id === kind);
   return (
@@ -338,6 +347,7 @@ export function FindBar({ tab }: { tab: Tab }) {
             ))}
           </>
         )}
+        {kind === "lua" && <LuaFindOptions />}
         {kind === "regex" && (
           <button
             type="button"

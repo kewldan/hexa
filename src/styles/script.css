@@ -1,0 +1,175 @@
+/* Lua console, script editor, macros and plugins (SCR-01…05). */
+.sc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 100%;
+}
+.sc-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 4px;
+}
+.sc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.sc-log {
+  flex: 1 1 160px;
+  min-height: 140px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--ed);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 11.5px;
+  line-height: 1.45;
+  user-select: text;
+}
+.sc-l {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sc-l.in {
+  color: var(--ink2);
+}
+.sc-l.value {
+  color: var(--acc);
+}
+.sc-l.error {
+  color: var(--del);
+}
+.sc-l.warn {
+  color: var(--mod);
+}
+.sc-l.info,
+.sc-l.debug {
+  color: var(--muted);
+}
+.sc-hint {
+  color: var(--muted);
+  font-family: var(--ui);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.sc-hint b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 500;
+}
+.sc-in {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: var(--ed);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow 0.2s;
+}
+.sc-in:focus-within {
+  box-shadow:
+    inset 0 0 0 1px var(--acc),
+    0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent);
+}
+.sc-in.busy {
+  opacity: 0.75;
+}
+.sc-ps {
+  color: var(--acc);
+  font-size: 12px;
+  line-height: 18px;
+}
+.sc-in textarea {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0;
+}
+.sc-editor,
+.sc-macro,
+.sc-plugins {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+textarea.inp.sc-src {
+  min-height: 180px;
+  font-size: 12px;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+}
+.sc-steps {
+  margin: 0;
+  padding: 0 0 0 22px;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 11.5px;
+  color: var(--ink2);
+}
+.sc-rec {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--del);
+}
+.sc-recording {
+  color: var(--del);
+}
+.sc-busy {
+  color: var(--acc);
+}
+.sc-plugin {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--card);
+}
+.sc-field,
+.sc-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.sc-fail {
+  padding: 0 4px;
+}
+.sc-fail .note {
+  color: var(--mod);
+}
+.sc-token {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.sc-token .inp {
+  flex: 1;
+  min-width: 0;
+}
+.sc-status.on {
+  color: var(--ins);
+}
+.sc-status.bad {
+  color: var(--del);
+}
+.sc-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

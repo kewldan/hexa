@@ -1,4 +1,5 @@
 // Editor operations shared by keyboard shortcuts, menus and the palette.
+
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open as openFileDialog, save as saveFileDialog } from "@tauri-apps/plugin-dialog";
 import { cacheFor, dropCache } from "../grid/cache";
@@ -17,6 +18,7 @@ import {
   type Scope,
 } from "../ipc/api";
 import { fmtSize, hex2, hexN } from "../lib/format";
+import { useClipHist } from "./cliphist";
 import { settings, useSettings } from "./settings";
 import { activeTab, hasSelection, selection, selectionOrByte, type Tab, useTabs } from "./tabs";
 import { confirm, openDialog, toast, useUi } from "./ui";
@@ -909,6 +911,7 @@ export async function copy(format?: CopyFormat, cut = false) {
   try {
     const r = await api.clipCopy(t.id, start, end, format);
     if (!r.written && r.text !== null) await writeText(r.text);
+    useClipHist.getState().push(r.text, r.len, t.info.name);
     if (cut) {
       await deleteBytes(false);
       toast(`Вырезано ${fmtSize(r.len)}`);
@@ -1330,6 +1333,20 @@ export async function loadWorkspace() {
     }
     const active = useTabs.getState().tabs.find((x) => x.info.path === ws.active);
     if (active) useTabs.getState().activate(active.id);
+  } catch (e) {
+    report(e);
+  }
+}
+
+/** Opens the saved version of the file read-only and compares (FILE-18). */
+export async function compareWithDisk(id?: number) {
+  const t = id === undefined ? activeTab() : tab(id);
+  if (!t?.info.path) return toast("У вкладки нет файла на диске", true);
+  try {
+    const info = await adopt(await api.open(t.info.path, { mode: "readOnly" }));
+    useTabs.getState().activate(t.id);
+    const { startDiff } = await import("./diff");
+    await startDiff(t.id, info.id);
   } catch (e) {
     report(e);
   }

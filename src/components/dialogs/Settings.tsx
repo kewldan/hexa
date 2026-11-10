@@ -5,6 +5,7 @@ import { chordOf, displayKeys } from "../../lib/keys";
 import { encodings } from "../../state/actions";
 import { type Column, DEFAULTS, type Settings, useSettings } from "../../state/settings";
 import { closeDialog } from "../../state/ui";
+import { ScriptSettings } from "../ScriptSettings";
 import { Modal } from "./Dialogs";
 
 const SECTIONS = [
@@ -17,6 +18,7 @@ const SECTIONS = [
   ["theme", "Тема"],
   ["keys", "Клавиши"],
   ["access", "Доступность"],
+  ["scripts", "Скрипты и API"],
   ["profiles", "Профили и JSON"],
 ] as const;
 
@@ -738,6 +740,11 @@ export function SettingsDialog({ section }: { section?: string }) {
                 onChange={p("screenReader")}
               />
               <Check
+                label="Цвета подсветки, различимые при дальтонизме"
+                checked={s.colorSafe}
+                onChange={p("colorSafe")}
+              />
+              <Check
                 label="Подсказка со значениями при наведении на байт"
                 checked={s.hoverInspector}
                 onChange={p("hoverInspector")}
@@ -866,6 +873,7 @@ export function SettingsDialog({ section }: { section?: string }) {
             </>
           )}
           {tab === "keys" && <KeysSection />}
+          {tab === "scripts" && <ScriptSettings />}
         </section>
       </div>
     </Modal>

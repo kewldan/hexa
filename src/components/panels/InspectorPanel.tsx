@@ -1,4 +1,5 @@
 // Data Inspector (INSP-01…03, 06, 07, 15): every type at once, editable in place.
+
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useRef, useState } from "react";
 import { cacheFor } from "../../grid/cache";
@@ -8,6 +9,7 @@ import * as A from "../../state/actions";
 import { useSettings } from "../../state/settings";
 import { selection, type Tab, useTabs } from "../../state/tabs";
 import { toast } from "../../state/ui";
+import { InspectorAsm } from "./InspectorAsm";
 
 const SHORT: Partial<Record<InspectType, string>> = {
   binary: "bin",
@@ -312,6 +314,7 @@ function ExtendedRows({ tab }: { tab: Tab }) {
               ))}
         </div>
       ))}
+      <InspectorAsm tab={tab} />
       <Watches tab={tab} />
     </>
   );

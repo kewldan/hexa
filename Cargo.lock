@@ -2350,8 +2350,15 @@ name = "hexa"
 version = "0.1.0"
 dependencies = [
  "clipboard-rs",
+ "getrandom 0.4.3",
+ "hexa-analysis",
  "hexa-core",
  "hexa-diff",
+ "hexa-net",
+ "hexa-proc",
+ "hexa-re",
+ "hexa-script",
+ "hexa-sys",
  "hexa-transform",
  "notify",
  "parking_lot 0.13.0",

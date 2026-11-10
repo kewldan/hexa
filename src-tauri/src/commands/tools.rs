@@ -108,7 +108,9 @@ pub fn search_all(
 
 #[tauri::command]
 pub fn hash_algorithms() -> Vec<AlgoInfo> {
-    hash::algorithms()
+    let mut all = hash::algorithms();
+    all.extend(hexa_analysis::hash::algorithms());
+    all
 }
 
 #[tauri::command]
@@ -148,7 +150,16 @@ pub fn hash_run(
                 let _ = channel.send(HashEvent::Progress { done, total });
             }
         };
-        let r = hash::hash_range(&tree, start, end, &algorithms, custom, &cancel, &progress);
+        // Fast and fuzzy hashes live in hexa-analysis, which also handles core ids (ANL-03, ANL-04).
+        let r = hexa_analysis::hash::hash_range(
+            &tree,
+            start,
+            end,
+            &algorithms,
+            custom,
+            &cancel,
+            &progress,
+        );
         let _ = channel.send(match r {
             Ok(results) => HashEvent::Done { results },
             Err(e) => HashEvent::Error { error: e.into() },
@@ -172,7 +183,7 @@ pub fn hash_quick(
     }
     let entry = state.get(id)?;
     let tree = entry.view.read().tree.clone();
-    let r = hash::hash_range(
+    let r = hexa_analysis::hash::hash_range(
         &tree,
         start,
         end,
