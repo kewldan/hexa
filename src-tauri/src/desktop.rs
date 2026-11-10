@@ -66,6 +66,7 @@ const VIEW: Items = &[
 ];
 const TOOLS: Items = &[
     ("diff.compare", "Сравнить с…"),
+    ("diff.nway", "Сравнить несколько файлов…"),
     ("diff.merge3", "Трёхстороннее слияние…"),
     ("patch.create", "Создать патч…"),
     ("patch.apply", "Применить патч…"),

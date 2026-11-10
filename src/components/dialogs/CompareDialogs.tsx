@@ -7,6 +7,7 @@ import * as A from "../../state/actions";
 import { type Tab, useActiveTab, useTabs } from "../../state/tabs";
 import { closeDialog, toast } from "../../state/ui";
 import { Modal } from "./Dialogs";
+import "../../styles/tools.css";
 
 const FORMATS: { id: PatchFormat; name: string; ext: string; note: string }[] = [
   { id: "bps", name: "BPS", ext: "bps", note: "компактный, с CRC32, любые размеры" },
@@ -297,6 +298,116 @@ export function PatchApplyDialog({ path: initial }: { path?: string }) {
         Патч применяется к «{cur?.info.name}» с учётом несохранённых правок; результат откроется в
         новой вкладке.
       </div>
+    </Modal>
+  );
+}
+
+type Nway = Awaited<ReturnType<typeof api.diffNway>>;
+
+/** Several files against one base (DIFF-03). */
+export function NwayDialog() {
+  const tabs = useTabs((s) => s.tabs);
+  const cur = useActiveTab();
+  const [base, setBase] = useState(cur?.id ?? tabs[0]?.id ?? 0);
+  const [picked, setPicked] = useState<number[]>(
+    tabs.filter((t) => t.id !== (cur?.id ?? 0)).map((t) => t.id),
+  );
+  const [res, setRes] = useState<Nway | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inputs = picked.filter((id) => id !== base);
+  const run = async () => {
+    setBusy(true);
+    try {
+      setRes(await api.diffNway(base, inputs));
+    } catch (e) {
+      A.report(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const name = (id: number) => tabs.find((t) => t.id === id)?.info.name ?? "?";
+  return (
+    <Modal
+      title="Сравнить несколько файлов"
+      wide
+      footer={
+        <>
+          <button type="button" className="btn" onClick={closeDialog}>
+            Закрыть
+          </button>
+          <button
+            type="button"
+            className="btn pri"
+            onClick={run}
+            disabled={busy || inputs.length === 0}
+          >
+            {busy ? "Сравниваю…" : "Сравнить"}
+          </button>
+        </>
+      }
+    >
+      <TabSelect label="База" value={base} onChange={setBase} tabs={tabs} />
+      <div className="row-f">
+        <span>С чем сравнить</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {tabs
+            .filter((t) => t.id !== base)
+            .map((t) => (
+              <label key={t.id} className="chk" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={picked.includes(t.id)}
+                  onChange={(e) =>
+                    setPicked(
+                      e.target.checked ? [...picked, t.id] : picked.filter((x) => x !== t.id),
+                    )
+                  }
+                />
+                {t.info.name}
+              </label>
+            ))}
+        </div>
+      </div>
+      {res && (
+        <>
+          <div className="note">
+            Регионов с отличиями: {res.regions.length}
+            {res.truncated ? " (список обрезан)" : ""} ·{" "}
+            {inputs
+              .map((id, i) => `${name(id)}: ${res.stats[i]?.matchPercent.toFixed(1)}%`)
+              .join(" · ")}
+          </div>
+          <div className="nway">
+            <div className="nway-row head">
+              <span>База</span>
+              {inputs.map((id) => (
+                <span key={id}>{name(id)}</span>
+              ))}
+            </div>
+            {res.regions.slice(0, 1000).map((r) => (
+              <button
+                type="button"
+                key={r.base.start}
+                className="nway-row"
+                onClick={() => {
+                  useTabs.getState().activate(base);
+                  A.selectRange(r.base.start, r.base.start + Math.max(1, r.base.len));
+                }}
+              >
+                <span className="mono">
+                  {hexN(r.base.start)}+{r.base.len}
+                </span>
+                {r.inputs.map((s, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: one cell per input, in order
+                  <span key={i} className={`mono k-${s.kind}`}>
+                    {s.kind === "equal" ? "=" : `${hexN(s.span.start)}+${s.span.len}`}
+                  </span>
+                ))}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

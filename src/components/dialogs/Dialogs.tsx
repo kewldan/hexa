@@ -17,7 +17,7 @@ import { startDiff } from "../../state/diff";
 import { selection, selectionOrByte, useActiveTab, useTabs } from "../../state/tabs";
 import { closeDialog, type Dialog, toast, useUi } from "../../state/ui";
 import { MARK_COLORS } from "../panels/MarksPanel";
-import { Merge3Dialog, PatchApplyDialog, PatchCreateDialog } from "./CompareDialogs";
+import { Merge3Dialog, NwayDialog, PatchApplyDialog, PatchCreateDialog } from "./CompareDialogs";
 import { ExportDialog } from "./IoDialogs";
 import { SettingsDialog } from "./Settings";
 import { isSourceDialog, SourceDialogs } from "./SourceDialogs";
@@ -1248,6 +1248,8 @@ export function Dialogs() {
       return <PickTabDialog mode={d.mode ?? "side"} />;
     case "merge3":
       return <Merge3Dialog />;
+    case "nway":
+      return <NwayDialog />;
     case "patchCreate":
       return <PatchCreateDialog />;
     case "patchApply":

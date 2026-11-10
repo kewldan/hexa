@@ -260,3 +260,28 @@ pub async fn patch_apply(
         reversed: applied.reversed,
     })
 }
+
+/// Compares several documents with one base (DIFF-03).
+#[tauri::command]
+pub async fn diff_nway(
+    state: State<'_, AppState>,
+    base: u64,
+    inputs: Vec<u64>,
+    opts: Option<DiffOptions>,
+) -> CmdResult<hexa_diff::NwayResult> {
+    let state = state.inner();
+    let tb = tree_of(state, base)?;
+    let trees = inputs
+        .iter()
+        .map(|&i| tree_of(state, i))
+        .collect::<CmdResult<Vec<_>>>()?;
+    let opts = opts.unwrap_or_default();
+    let (job, cancel) = state.start_job();
+    let r = tauri::async_runtime::spawn_blocking(move || {
+        hexa_diff::diff_nway(&tb, &trees, &opts, &cancel, &|_, _| {})
+    })
+    .await
+    .map_err(|e| CmdError::new("internal", e.to_string()))?;
+    state.end_job(job);
+    Ok(r?)
+}

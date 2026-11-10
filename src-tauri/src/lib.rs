@@ -161,6 +161,7 @@ pub fn run() {
             commands::compare::diff_export,
             commands::compare::diff_apply,
             commands::compare::merge3,
+            commands::compare::diff_nway,
             commands::compare::patch_inspect,
             commands::compare::patch_create,
             commands::compare::patch_apply,

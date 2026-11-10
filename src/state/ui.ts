@@ -15,6 +15,7 @@ export type Dialog =
   | { kind: "moveBlock" }
   | { kind: "pickTab"; mode?: "side" | "diff" }
   | { kind: "merge3" }
+  | { kind: "nway" }
   | { kind: "patchCreate" }
   | { kind: "patchApply"; path?: string }
   | { kind: "exportAs" }

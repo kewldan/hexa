@@ -936,6 +936,12 @@ export const COMMANDS: Command[] = [
     },
   },
   {
+    id: "diff.nway",
+    title: "Сравнить несколько файлов…",
+    group: "Сравнение",
+    run: () => openDialog({ kind: "nway" }),
+  },
+  {
     id: "diff.merge3",
     title: "Трёхстороннее слияние…",
     group: "Сравнение",

@@ -615,6 +615,12 @@ export const api = {
     invoke<string>("diff_export", { result, format, path }),
   diffApply: (to: number, from: number, regions: DiffRegion[]) =>
     invoke<EditResult>("diff_apply", { to, from, regions }),
+  diffNway: (base: number, inputs: number[]) =>
+    invoke<{
+      regions: { base: Span; inputs: { span: Span; kind: RegionKind }[]; differing: number }[];
+      stats: DiffStats[];
+      truncated: boolean;
+    }>("diff_nway", { base, inputs, opts: null }),
   merge3: (base: number, ours: number, theirs: number, conflict: "ours" | "theirs" | "base") =>
     invoke<{ info: DocInfo; result: { conflicts: MergeConflict[]; len: number } }>("merge3", {
       base,

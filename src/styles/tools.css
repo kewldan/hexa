@@ -93,3 +93,38 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+.nway {
+  max-height: 46vh;
+  overflow: auto;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.nway-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  padding: 2px 6px;
+  text-align: left;
+  border-radius: 4px;
+}
+.nway-row:hover {
+  background: var(--hov);
+}
+.nway-row.head {
+  position: sticky;
+  top: 0;
+  background: var(--pop);
+  color: var(--muted);
+  font-weight: 600;
+}
+.nway-row .k-changed {
+  color: #e8890c;
+}
+.nway-row .k-inserted {
+  color: #1f9d74;
+}
+.nway-row .k-deleted {
+  color: #dc2626;
+}
