@@ -1396,15 +1396,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
-name = "ecb"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26f2a8b3e564eba0877223dc343703ad0385794e882e6d13f3a4dd5c6b1f41ac"
-dependencies = [
- "cipher",
-]
-
-[[package]]
 name = "ecdsa"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2360,6 +2351,8 @@ version = "0.1.0"
 dependencies = [
  "clipboard-rs",
  "hexa-core",
+ "hexa-diff",
+ "hexa-transform",
  "notify",
  "parking_lot 0.13.0",
  "serde",
@@ -2561,13 +2554,10 @@ dependencies = [
  "brotli",
  "bs58",
  "bzip2",
- "cbc",
  "chacha20",
  "cipher",
- "ctr",
  "data-encoding",
  "des",
- "ecb",
  "flate2",
  "hexa-core",
  "lz4_flex",
