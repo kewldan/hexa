@@ -13,4 +13,20 @@ publish = false
 workspace = true
 
 [dependencies]
+adler2 = "2.0.1"
+base64 = "0.23.1"
+capstone = "0.14.0"
+cpp_demangle = "0.5.1"
+crc32fast = "1.5.5"
+goblin = "0.10.7"
 hexa-core = { path = "../hexa-core" }
+iced-x86 = "1.22.0"
+memchr = "2.8.3"
+msvc-demangler = "0.11.0"
+rustc-demangle = "0.1.28"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+
+[dev-dependencies]
+tempfile = "3.27.0"

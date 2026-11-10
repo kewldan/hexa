@@ -13,4 +13,15 @@ publish = false
 workspace = true
 
 [dependencies]
+aho-corasick = "1.1.5"
 hexa-core = { path = "../hexa-core" }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "bmp", "ico", "webp"] }
+miniz_oxide = "0.9.1"
+regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
+xxhash-rust = { version = "0.8.19", features = ["xxh32", "xxh64", "xxh3"] }
+
+[dev-dependencies]
+fast-tlsh = "0.1.10"
+ffuzzy = "0.3.16"
+murmur3 = "0.5.2"

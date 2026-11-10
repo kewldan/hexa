@@ -36,4 +36,24 @@ too_many_arguments = "allow"
 unusual_byte_groupings = "allow"
 
 [dependencies]
+bzip2 = "0.6.1"
+flate2 = "1.1.11"
+getrandom = "0.4.3"
 hexa-core = { path = "../hexa-core" }
+lru = "0.19.0"
+lzfse_rust = "0.2.1"
+md-5 = "0.11.0"
+parking_lot = "0.13.0"
+plist = "1.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2.191"
+xattr = "1.7.0"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Ioctl"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

@@ -62,7 +62,7 @@ test("goto accepts expressions", async ({ page }) => {
 test("find bar finds text and steps through matches", async ({ page }) => {
   await page.keyboard.press(`${mod}+f`);
   await page.getByRole("button", { name: "Текст" }).click();
-  const input = page.getByRole("textbox", { name: "Что искать" });
+  const input = page.getByLabel("Что искать");
   await input.fill("Hexa");
   await expect(page.locator(".fcount")).toContainText("1");
   await input.press("Enter");
