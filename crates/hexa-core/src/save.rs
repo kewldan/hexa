@@ -328,6 +328,8 @@ impl Document {
         // Old history entries keep seeing the pre-save bytes through an overlay.
         let overlay = if let Some(j) = journal {
             let records = j.records;
+            // `File` has no destructor on wasm32, where `std::fs` is a stub.
+            #[cfg_attr(target_family = "wasm", allow(clippy::drop_non_drop))]
             drop(j.file);
             let kept = std::env::temp_dir().join(format!(
                 "hexa-undo-{}-{}.journal",
@@ -432,6 +434,7 @@ pub fn rollback_journal(path: &Path) -> Result<()> {
     }
     f.set_len(old_len)?;
     f.sync_all()?;
+    #[cfg_attr(target_family = "wasm", allow(clippy::drop_non_drop))]
     drop(j);
     fs::remove_file(&jpath)?;
     Ok(())

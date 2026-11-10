@@ -1,0 +1,44 @@
+{
+  "name": "hexa-wasm",
+  "version": "0.1.0",
+  "description": "Hexa hex editor engine compiled to WebAssembly: editable buffers with undo, search, hashes, binary diff, patches and transformations.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kewldan/hexa",
+    "directory": "crates/hexa-wasm"
+  },
+  "type": "commonjs",
+  "main": "./pkg/node/hexa_wasm.js",
+  "module": "./pkg/web/hexa_wasm.js",
+  "types": "./pkg/node/hexa_wasm.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./pkg/node/hexa_wasm.d.ts",
+        "default": "./pkg/node/hexa_wasm.js"
+      },
+      "default": {
+        "types": "./pkg/web/hexa_wasm.d.ts",
+        "default": "./pkg/web/hexa_wasm.js"
+      }
+    },
+    "./web": {
+      "types": "./pkg/web/hexa_wasm.d.ts",
+      "default": "./pkg/web/hexa_wasm.js"
+    }
+  },
+  "files": [
+    "pkg/node",
+    "pkg/web",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build:wasm": "cargo build --target wasm32-unknown-unknown --release -p hexa-wasm",
+    "build:node": "npm run build:wasm && wasm-bindgen --target nodejs --out-dir pkg/node ../../target/wasm32-unknown-unknown/release/hexa_wasm.wasm",
+    "build:web": "npm run build:wasm && wasm-bindgen --target web --out-dir pkg/web ../../target/wasm32-unknown-unknown/release/hexa_wasm.wasm && node -e \"require('fs').writeFileSync('pkg/web/package.json', '{\\\"type\\\":\\\"module\\\"}\\n')\"",
+    "build": "npm run build:node && npm run build:web",
+    "test": "node test/smoke.cjs"
+  }
+}

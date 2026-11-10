@@ -126,10 +126,24 @@ struct TypingRun {
     bytes: Vec<u8>,
     insert: bool,
     base_tree: Tree,
-    last: Instant,
+    /// Time of the last keystroke; `None` where there is no clock.
+    last: Option<Instant>,
 }
 
 const TYPING_GAP: Duration = Duration::from_secs(3);
+
+/// Monotonic clock for typing runs. `wasm32-unknown-unknown` has none
+/// (`Instant::now` panics there), so keystrokes always group.
+#[cfg_attr(
+    not(all(target_family = "wasm", target_os = "unknown")),
+    allow(clippy::unnecessary_wraps)
+)]
+fn typing_now() -> Option<Instant> {
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    return None;
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
+    Some(Instant::now())
+}
 /// Largest selection that may be materialised in memory by a transform.
 pub const MATERIALIZE_LIMIT: u64 = 512 * 1024 * 1024;
 
@@ -608,7 +622,8 @@ impl Document {
 
         if let Some(run) = &mut self.typing {
             let run_end = run.start + run.bytes.len() as u64;
-            let fresh = run.last.elapsed() < TYPING_GAP && self.history.can_amend(run.entry);
+            let fresh = run.last.is_none_or(|t| t.elapsed() < TYPING_GAP)
+                && self.history.can_amend(run.entry);
             let continues = if amend {
                 pos >= run.start && pos < run_end
             } else {
@@ -640,7 +655,7 @@ impl Document {
                 } else {
                     run.bytes.push(byte);
                 }
-                run.last = Instant::now();
+                run.last = typing_now();
                 let (tree, change) = run_tree(run);
                 self.history.amend(tree, change);
                 return Ok(change);
@@ -668,7 +683,7 @@ impl Document {
             bytes: vec![byte],
             insert,
             base_tree,
-            last: Instant::now(),
+            last: typing_now(),
         };
         let (tree, change) = run_tree(&run);
         run.entry = self.history.commit(tree, "Typing", change);

@@ -541,6 +541,23 @@ pub(crate) fn write_all_at(file: &File, mut offset: u64, mut data: &[u8]) -> io:
     Ok(())
 }
 
+/// Fallback for targets without positional file I/O (e.g. `wasm32`), where
+/// `std::fs` itself is unsupported and every call fails at runtime anyway.
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn read_exact_at(mut file: &File, offset: u64, buf: &mut [u8]) -> io::Result<()> {
+    use std::io::{Read, Seek, SeekFrom};
+    file.seek(SeekFrom::Start(offset))?;
+    file.read_exact(buf)
+}
+
+/// Fallback for targets without positional file I/O (see [`read_exact_at`]).
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn write_all_at(mut file: &File, offset: u64, data: &[u8]) -> io::Result<()> {
+    use std::io::{Seek, SeekFrom, Write};
+    file.seek(SeekFrom::Start(offset))?;
+    file.write_all(data)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

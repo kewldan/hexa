@@ -5,8 +5,6 @@
 //! Undoing and then editing starts a new branch; the old branch stays
 //! reachable through [`History::goto`].
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use serde::Serialize;
 
 use crate::tree::Tree;
@@ -63,9 +61,14 @@ pub struct History {
     saved: Option<usize>,
 }
 
+/// Wall-clock time of an entry. `wasm32-unknown-unknown` has no clock
+/// (`SystemTime::now` panics there), so entries get 0.
 fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    return 0;
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis() as u64)
 }
 
