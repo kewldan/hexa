@@ -184,51 +184,62 @@ fn float_str(v: f64) -> String {
     }
 }
 
-/// x87 80-bit extended precision (little-endian bytes) to the nearest f64.
-fn f80_to_f64(a: &[u8; 10]) -> f64 {
+/// `sign × m × 2^e2` with `m` in [0, 2), printed even when it does not fit
+/// an f64 (extended formats reach 2^±16383).
+fn scaled_str(negative: bool, m: f64, e2: i32) -> String {
+    let sign = if negative { "-" } else { "" };
+    if m == 0.0 {
+        return format!("{sign}0");
+    }
+    if (-1000..=1000).contains(&e2) {
+        let v = m * 2f64.powi(e2);
+        return float_str(if negative { -v } else { v });
+    }
+    let l = m.log10() + f64::from(e2) * std::f64::consts::LOG10_2;
+    let exp = l.floor();
+    let mant = 10f64.powf(l - exp);
+    format!("{sign}{mant:.6}e{exp}")
+}
+
+/// x87 80-bit extended precision, little-endian bytes.
+fn f80_str(a: &[u8; 10]) -> String {
     let mantissa = u64::from_le_bytes(a[..8].try_into().expect("8 bytes"));
     let se = u16::from_le_bytes([a[8], a[9]]);
-    let sign = if se & 0x8000 != 0 { -1.0 } else { 1.0 };
+    let negative = se & 0x8000 != 0;
     let exp = i32::from(se & 0x7FFF);
     if exp == 0x7FFF {
         return if mantissa << 1 == 0 {
-            sign * f64::INFINITY
+            if negative { "−∞" } else { "+∞" }.into()
         } else {
-            f64::NAN
+            "NaN".into()
         };
     }
-    if exp == 0 && mantissa == 0 {
-        return sign * 0.0;
-    }
-    // Explicit integer bit: value = mantissa / 2^63 * 2^(exp - 16383).
+    // Explicit integer bit: value = mantissa / 2^63 × 2^(exp − 16383).
     let e = if exp == 0 { 1 - 16383 } else { exp - 16383 };
-    sign * (mantissa as f64) * 2f64.powi(e - 63)
+    scaled_str(negative, mantissa as f64 / 2f64.powi(63), e)
 }
 
-/// IEEE 754 binary128 (little-endian bytes) to the nearest f64.
-fn f128_to_f64(a: &[u8; 16]) -> f64 {
+/// IEEE 754 binary128, little-endian bytes.
+fn f128_str(a: &[u8; 16]) -> String {
     let v = u128::from_le_bytes(*a);
-    let sign = if v >> 127 != 0 { -1.0 } else { 1.0 };
+    let negative = v >> 127 != 0;
     let exp = ((v >> 112) & 0x7FFF) as i32;
     let frac = v & ((1u128 << 112) - 1);
     if exp == 0x7FFF {
         return if frac == 0 {
-            sign * f64::INFINITY
+            if negative { "−∞" } else { "+∞" }.into()
         } else {
-            f64::NAN
+            "NaN".into()
         };
-    }
-    if exp == 0 && frac == 0 {
-        return sign * 0.0;
     }
     let (lead, e) = if exp == 0 {
         (0.0, 1 - 16383)
     } else {
         (1.0, exp - 16383)
     };
-    // Top 52 fraction bits are all an f64 can keep.
+    // The top 52 fraction bits are all an f64 mantissa can keep.
     let top = (frac >> 60) as f64 / (1u64 << 52) as f64;
-    sign * (lead + top) * 2f64.powi(e)
+    scaled_str(negative, lead + top, e)
 }
 
 fn utf8_char(bytes: &[u8]) -> Option<(char, usize)> {
@@ -287,8 +298,8 @@ pub fn decode(ty: InspectType, bytes: &[u8], endian: Endian) -> (Option<String>,
             ordered::<4>(bytes, endian).map(|a| float_str(f64::from(f32::from_le_bytes(a))))
         }
         InspectType::F64 => ordered::<8>(bytes, endian).map(|a| float_str(f64::from_le_bytes(a))),
-        InspectType::F80 => ordered::<10>(bytes, endian).map(|a| float_str(f80_to_f64(&a))),
-        InspectType::F128 => ordered::<16>(bytes, endian).map(|a| float_str(f128_to_f64(&a))),
+        InspectType::F80 => ordered::<10>(bytes, endian).map(|a| f80_str(&a)),
+        InspectType::F128 => ordered::<16>(bytes, endian).map(|a| f128_str(&a)),
         InspectType::Ascii => bytes.first().map(|&b| {
             if b < 0x80 {
                 show_char(char::from(b))
