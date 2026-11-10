@@ -12,6 +12,7 @@ pub mod history;
 pub mod inspector;
 pub mod piece;
 pub mod provider;
+pub mod recovery;
 pub mod save;
 pub mod search;
 pub mod task;

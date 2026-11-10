@@ -729,74 +729,7 @@ impl Document {
     /// the base: as long as the gap is, they count as modified, the rest as
     /// inserted; a gap longer than the run marks a deletion.
     pub fn changes_in(&self, start: u64, end: u64) -> Vec<ChangeSpan> {
-        const MARGIN: u64 = 1 << 20;
-        let tree = self.tree();
-        let total = tree.len();
-        let lo = start.saturating_sub(MARGIN);
-        let hi = end.saturating_add(MARGIN).min(total);
-        let pieces = tree.pieces(lo, hi);
-        let is_base = |p: &Piece| p.source.is_provider(&self.base);
-        let mut out = Vec::new();
-        let mut prev_end: Option<u64> = (lo == 0).then_some(0);
-        let mut after_run = false;
-        let mut last_was_base = false;
-        let mut i = 0;
-        while i < pieces.len() {
-            let (pos, p) = &pieces[i];
-            if is_base(p) {
-                if !after_run && prev_end.is_some_and(|pe| p.offset > pe) {
-                    out.push(span(*pos, *pos, ChangeKind::Deleted));
-                }
-                prev_end = Some(p.offset + p.len);
-                after_run = false;
-                last_was_base = true;
-                i += 1;
-                continue;
-            }
-            let run_start = *pos;
-            let mut j = i;
-            while j < pieces.len() && !is_base(&pieces[j].1) {
-                j += 1;
-            }
-            let run_end = pieces.get(j).map_or(hi, |(p, _)| *p);
-            let run_len = run_end - run_start;
-            let next_start = match pieces.get(j) {
-                Some((_, b)) => Some(b.offset),
-                None if hi == total => Some(self.base.len()),
-                None => None,
-            };
-            let gap = match (prev_end, next_start) {
-                (Some(a), Some(b)) if b >= a => b - a,
-                _ => run_len,
-            };
-            let modified = gap.min(run_len);
-            if modified > 0 {
-                out.push(span(run_start, run_start + modified, ChangeKind::Modified));
-            }
-            if modified < run_len {
-                out.push(span(run_start + modified, run_end, ChangeKind::Inserted));
-            }
-            if gap > run_len {
-                out.push(span(run_end, run_end, ChangeKind::Deleted));
-            }
-            after_run = true;
-            last_was_base = false;
-            i = j;
-        }
-        if last_was_base && hi == total && prev_end.is_some_and(|pe| pe < self.base.len()) {
-            out.push(span(total, total, ChangeKind::Deleted));
-        }
-        if pieces.is_empty() && total == 0 && !self.base.is_empty() {
-            out.push(span(0, 0, ChangeKind::Deleted));
-        }
-        out.retain(|s| {
-            if s.kind == ChangeKind::Deleted {
-                s.start >= start && s.start <= end
-            } else {
-                s.end > start && s.start < end
-            }
-        });
-        out
+        changes_in(self.tree(), &self.base, start, end)
     }
 
     // ----- external growth (FILE-07) ---------------------------------------
@@ -824,6 +757,77 @@ impl Document {
         }
         Ok(new - old)
     }
+}
+
+/// Changed spans of `tree` relative to `base` (see [`Document::changes_in`]).
+pub fn changes_in(tree: &Tree, base: &Arc<dyn Provider>, start: u64, end: u64) -> Vec<ChangeSpan> {
+    const MARGIN: u64 = 1 << 20;
+    let total = tree.len();
+    let lo = start.saturating_sub(MARGIN);
+    let hi = end.saturating_add(MARGIN).min(total);
+    let pieces = tree.pieces(lo, hi);
+    let is_base = |p: &Piece| p.source.is_provider(base);
+    let mut out = Vec::new();
+    let mut prev_end: Option<u64> = (lo == 0).then_some(0);
+    let mut after_run = false;
+    let mut last_was_base = false;
+    let mut i = 0;
+    while i < pieces.len() {
+        let (pos, p) = &pieces[i];
+        if is_base(p) {
+            if !after_run && prev_end.is_some_and(|pe| p.offset > pe) {
+                out.push(span(*pos, *pos, ChangeKind::Deleted));
+            }
+            prev_end = Some(p.offset + p.len);
+            after_run = false;
+            last_was_base = true;
+            i += 1;
+            continue;
+        }
+        let run_start = *pos;
+        let mut j = i;
+        while j < pieces.len() && !is_base(&pieces[j].1) {
+            j += 1;
+        }
+        let run_end = pieces.get(j).map_or(hi, |(p, _)| *p);
+        let run_len = run_end - run_start;
+        let next_start = match pieces.get(j) {
+            Some((_, b)) => Some(b.offset),
+            None if hi == total => Some(base.len()),
+            None => None,
+        };
+        let gap = match (prev_end, next_start) {
+            (Some(a), Some(b)) if b >= a => b - a,
+            _ => run_len,
+        };
+        let modified = gap.min(run_len);
+        if modified > 0 {
+            out.push(span(run_start, run_start + modified, ChangeKind::Modified));
+        }
+        if modified < run_len {
+            out.push(span(run_start + modified, run_end, ChangeKind::Inserted));
+        }
+        if gap > run_len {
+            out.push(span(run_end, run_end, ChangeKind::Deleted));
+        }
+        after_run = true;
+        last_was_base = false;
+        i = j;
+    }
+    if last_was_base && hi == total && prev_end.is_some_and(|pe| pe < base.len()) {
+        out.push(span(total, total, ChangeKind::Deleted));
+    }
+    if pieces.is_empty() && total == 0 && !base.is_empty() {
+        out.push(span(0, 0, ChangeKind::Deleted));
+    }
+    out.retain(|s| {
+        if s.kind == ChangeKind::Deleted {
+            s.start >= start && s.start <= end
+        } else {
+            s.end > start && s.start < end
+        }
+    });
+    out
 }
 
 fn span(start: u64, end: u64, kind: ChangeKind) -> ChangeSpan {
