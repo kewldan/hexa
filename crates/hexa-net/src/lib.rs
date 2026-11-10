@@ -6,7 +6,7 @@
 //! * [`http::HttpProvider`]: HTTP(S) object read through `Range` requests
 //!   (CORE-02 / FILE-16).
 //! * [`s3::S3Provider`]: object of an S3-compatible store, requests signed
-//!   with AWS SigV4 ([`sigv4`]) (FILE-16).
+//!   with AWS `SigV4` ([`sigv4`]) (FILE-16).
 //! * [`sftp::SftpProvider`]: file on an SSH server read and written through
 //!   SFTP at offsets (CORE-02 / FILE-16).
 //! * [`stream::StreamProvider`]: live buffer filled by a UDP listener or a TCP
