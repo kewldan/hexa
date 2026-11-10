@@ -2518,6 +2518,7 @@ dependencies = [
  "lru",
  "lzfse_rust",
  "md-5",
+ "memchr",
  "parking_lot 0.13.0",
  "plist",
  "serde",
