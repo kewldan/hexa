@@ -6,7 +6,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "correctness": { "useExhaustiveDependencies": "off" },
       "style": { "noNonNullAssertion": "off", "noDescendingSpecificity": "off" },
       "a11y": {

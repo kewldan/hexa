@@ -8,7 +8,7 @@ edition = "2024"
 license = "MIT"
 authors = ["kewldan"]
 repository = "https://github.com/kewldan/hexa"
-rust-version = "1.90"
+rust-version = "1.95"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

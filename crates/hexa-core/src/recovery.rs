@@ -15,7 +15,37 @@ use crate::piece::{Piece, Source};
 use crate::provider::{FileOpenOptions, FileProvider, Provider};
 use crate::tree::Tree;
 
-const MAGIC: &[u8; 8] = b"HXRECOV1";
+const MAGIC: &[u8; 8] = b"HXRECOV2";
+
+/// BLAKE3 of sampled blocks of a file: start, end and 14 blocks in between.
+/// Catches same-length rewrites that keep the mtime (coarse timestamps).
+fn fingerprint(path: &Path) -> std::io::Result<[u8; 32]> {
+    use std::io::{Read, Seek, SeekFrom};
+    const BLOCK: u64 = 64 * 1024;
+    const SAMPLES: u64 = 16;
+    let mut f = std::fs::File::open(path)?;
+    let len = f.metadata()?.len();
+    let mut h = blake3::Hasher::new();
+    h.update(&len.to_le_bytes());
+    let mut buf = vec![0u8; BLOCK as usize];
+    let mut last_end = 0;
+    for i in 0..SAMPLES {
+        let at = if len <= BLOCK * SAMPLES {
+            i * BLOCK
+        } else {
+            (len - BLOCK) / (SAMPLES - 1) * i
+        };
+        if at >= len || (i > 0 && at < last_end) {
+            continue;
+        }
+        let n = (len - at).min(BLOCK) as usize;
+        f.seek(SeekFrom::Start(at))?;
+        f.read_exact(&mut buf[..n])?;
+        h.update(&buf[..n]);
+        last_end = at + n as u64;
+    }
+    Ok(*h.finalize().as_bytes())
+}
 
 struct Writer(Vec<u8>);
 
@@ -93,6 +123,11 @@ impl Document {
         w.u64(len);
         w.u64(secs);
         w.u64(nanos);
+        let fp = match &self.path {
+            Some(p) if p.exists() => fingerprint(p)?,
+            _ => [0; 32],
+        };
+        w.0.extend_from_slice(&fp);
         w.u8(match self.mode() {
             EditMode::ReadOnly => 0,
             EditMode::Overwrite => 1,
@@ -161,6 +196,7 @@ impl Document {
         let path = r.str()?;
         let name = r.str()?;
         let (len, secs, nanos) = (r.u64()?, r.u64()?, r.u64()?);
+        let fp: [u8; 32] = r.take(32)?.try_into().expect("32 bytes");
         let mode = match r.u8()? {
             0 => EditMode::ReadOnly,
             2 => EditMode::Insert,
@@ -175,7 +211,10 @@ impl Document {
             let p = Path::new(&path);
             let now = FileStamp::read(p)?;
             let modified = Some(UNIX_EPOCH + Duration::new(secs, nanos as u32));
-            if now.len != len || (now.modified.is_some() && now.modified != modified) {
+            if now.len != len
+                || (now.modified.is_some() && now.modified != modified)
+                || fingerprint(p)? != fp
+            {
                 return Err(Error::invalid(format!(
                     "{path} changed on disk after the crash; recovery would corrupt it"
                 )));
