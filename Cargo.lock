@@ -1789,6 +1789,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hexa-net"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-proc"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
 name = "hexa-re"
 version = "0.1.0"
 dependencies = [
