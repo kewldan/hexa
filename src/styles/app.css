@@ -586,7 +586,7 @@ svg.i {
 .side.shut {
   width: 0;
   opacity: 0;
-  border-color: transparent;
+  border-width: 0;
 }
 .side-in {
   height: 100%;
@@ -643,7 +643,9 @@ svg.i {
 .panel-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  /* Panels scroll vertically only; long values are clipped with an ellipsis. */
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1652,16 +1654,30 @@ textarea.inp {
   box-shadow: inset 0 0 0 1.5px var(--acc);
   background: color-mix(in srgb, var(--acc) 7%, transparent);
 }
+/* Settings keep one size whatever the section; only the content scrolls. */
+.dlg.dlg-settings {
+  width: min(820px, calc(100vw - 32px));
+  height: min(640px, calc(100vh - 32px));
+}
+.dlg-settings .dlg-b {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
 .settings {
   display: grid;
   grid-template-columns: 170px minmax(0, 1fr);
-  min-height: 420px;
+  height: 100%;
+  min-height: 0;
 }
 .settings nav {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 8px;
+  overflow-y: auto;
+  min-height: 0;
   border-right: 1px solid var(--line);
 }
 .settings nav button {
@@ -1681,7 +1697,7 @@ textarea.inp {
   flex-direction: column;
   gap: 12px;
   overflow: auto;
-  max-height: 60vh;
+  min-height: 0;
   animation: fadeUp 0.25s var(--ease) both;
 }
 .keyrow {

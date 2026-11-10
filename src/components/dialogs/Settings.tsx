@@ -286,6 +286,7 @@ export function SettingsDialog({ section }: { section?: string }) {
   return (
     <Modal
       wide
+      className="dlg-settings"
       title="Настройки"
       footer={
         <>
@@ -298,7 +299,7 @@ export function SettingsDialog({ section }: { section?: string }) {
         </>
       }
     >
-      <div className="settings" style={{ margin: "0 -18px -14px" }}>
+      <div className="settings">
         <nav>
           {SECTIONS.map(([id, label]) => (
             <button

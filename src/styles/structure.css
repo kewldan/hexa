@@ -1,6 +1,8 @@
 @import "./analysis.css";
 
 .st-tree {
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   font-size: 12px;
@@ -8,7 +10,8 @@
 }
 .st-row {
   display: grid;
-  grid-template-columns: 14px 8px minmax(60px, auto) minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: 14px 8px minmax(0, max-content) minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
+  min-width: 0;
   gap: 6px;
   align-items: center;
   min-height: 22px;
@@ -93,6 +96,7 @@
   background: color-mix(in srgb, #ca8a04 8%, transparent);
 }
 .st-src {
+  box-sizing: border-box;
   display: block;
   width: calc(100% - 12px);
   margin: 6px 6px 4px;

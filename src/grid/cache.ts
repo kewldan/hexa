@@ -2,7 +2,8 @@
 //
 // The grid asks for bytes synchronously; missing pages are fetched in batches
 // and listeners are notified when they arrive. Edits invalidate only the
-// pages they can affect.
+// pages they can affect, and invalidated pages stay visible until their
+// fresh copy arrives so the grid never flashes empty after a keystroke.
 import { api, type Change, type ChangeSpan } from "../ipc/api";
 
 export const PAGE = 4096;
@@ -13,6 +14,8 @@ type Listener = () => void;
 export class DocCache {
   readonly id: number;
   private pages = new Map<number, Uint8Array>();
+  /** Invalidated pages, shown until the refetched page replaces them. */
+  private stale = new Map<number, Uint8Array>();
   private pending = new Set<number>();
   /** Pages that failed to read (unmapped process memory), shown as `??`. */
   private bad = new Set<number>();
@@ -38,7 +41,8 @@ export class DocCache {
 
   /** Byte at `offset`, or `undefined` while its page is loading. */
   byte(offset: number): number | undefined {
-    const page = this.pages.get(Math.floor(offset / PAGE));
+    const p = Math.floor(offset / PAGE);
+    const page = this.pages.get(p) ?? this.stale.get(p);
     if (!page) return undefined;
     const i = offset % PAGE;
     return i < page.length ? page[i] : undefined;
@@ -53,7 +57,7 @@ export class DocCache {
   slice(start: number, end: number, out: Uint8Array): boolean {
     let ok = true;
     for (let p = Math.floor(start / PAGE); p * PAGE < end; p++) {
-      const page = this.pages.get(p);
+      const page = this.pages.get(p) ?? this.stale.get(p);
       if (!page) {
         ok = false;
         continue;
@@ -88,6 +92,7 @@ export class DocCache {
             const off = (p - from) * PAGE;
             if (off >= bytes.length) continue;
             this.pages.set(p, bytes.subarray(off, Math.min(off + PAGE, bytes.length)));
+            this.stale.delete(p);
           }
           this.evict();
           this.emit();
@@ -122,30 +127,49 @@ export class DocCache {
     }
   }
 
-  /** Drops what an edit may have touched. */
+  /** Moves a page to the stale set: still drawn, but fetched again. */
+  private retire(p: number) {
+    const page = this.pages.get(p);
+    if (!page) return;
+    this.pages.delete(p);
+    this.stale.set(p, page);
+  }
+
+  /** Invalidates what an edit may have touched. */
   applyChange(change: Change | null, len: number, version: number) {
     this.len = len;
     this.version = version;
-    this.changeWin = null;
     if (!change) {
-      this.clear();
+      this.refresh();
       return;
     }
     const firstPage = Math.floor(change.start / PAGE);
     if (change.removed !== change.inserted) {
-      for (const p of [...this.pages.keys()]) if (p >= firstPage) this.pages.delete(p);
+      for (const p of [...this.pages.keys()]) if (p >= firstPage) this.retire(p);
     } else {
       const lastPage = Math.floor((change.start + Math.max(change.inserted, 1) - 1) / PAGE);
-      for (let p = firstPage; p <= lastPage; p++) this.pages.delete(p);
+      for (let p = firstPage; p <= lastPage; p++) this.retire(p);
     }
+    for (const p of [...this.stale.keys()]) if (p * PAGE >= len) this.stale.delete(p);
     this.gen++;
     this.pending.clear();
     this.bad.clear();
     this.emit();
   }
 
+  /** Refetches everything while keeping the current bytes on screen. */
+  private refresh() {
+    for (const p of [...this.pages.keys()]) this.retire(p);
+    if (this.stale.size > MAX_PAGES) this.stale.clear();
+    this.pending.clear();
+    this.bad.clear();
+    this.gen++;
+    this.emit();
+  }
+
   clear() {
     this.pages.clear();
+    this.stale.clear();
     this.pending.clear();
     this.bad.clear();
     this.changeWin = null;
@@ -157,7 +181,7 @@ export class DocCache {
     if (version !== this.version) {
       this.len = len;
       this.version = version;
-      this.clear();
+      this.refresh();
     } else {
       this.len = len;
     }
@@ -181,7 +205,8 @@ export class DocCache {
         })
         .catch(() => {});
     }
-    return w && w.gen === this.gen ? w.spans : [];
+    // Until the new spans arrive keep showing the previous ones (no flash).
+    return w ? w.spans : [];
   }
 }
 

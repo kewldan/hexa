@@ -127,7 +127,10 @@ export function Sidebar({ side, tab }: { side: "left" | "right"; tab: Tab }) {
   return (
     <aside
       className={`side ${side === "left" ? "l" : "r"}${open && panels.length ? "" : " shut"}${resizing ? " resizing" : ""}`}
-      style={{ width }}
+      // A closed side gives its width back to the editor; the inner box keeps
+      // its width so the content slides out instead of reflowing.
+      style={{ width: open && panels.length ? width : 0 }}
+      aria-hidden={!(open && panels.length)}
       aria-label={side === "left" ? "Левая панель" : "Правая панель"}
     >
       <div className="side-in" style={{ width }}>

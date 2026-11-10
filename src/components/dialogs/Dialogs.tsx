@@ -36,18 +36,21 @@ export function Modal({
   children,
   footer,
   wide,
+  className,
   onClose = closeDialog,
 }: {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  /** Extra class on the dialog box (e.g. a fixed size). */
+  className?: string;
   onClose?: () => void;
 }) {
   return (
     <div className="scrim center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
-        className={`dlg${wide ? " wide" : ""}`}
+        className={`dlg${wide ? " wide" : ""}${className ? ` ${className}` : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
