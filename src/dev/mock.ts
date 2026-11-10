@@ -721,7 +721,7 @@ export function installMock() {
         case "tpl_remove":
           return null;
         case "app_info":
-          return { version: "0.1.0", portable: false, configDir: "/mock" };
+          return { version: "1.0.0", portable: false, configDir: "/mock" };
         case "app_print":
           return null;
         case "files_search":

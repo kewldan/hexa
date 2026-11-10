@@ -1,6 +1,6 @@
 {
   "name": "hexa-wasm",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Hexa hex editor engine compiled to WebAssembly: editable buffers with undo, search, hashes, binary diff, patches and transformations.",
   "license": "MIT",
   "repository": {

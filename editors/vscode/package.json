@@ -2,7 +2,7 @@
   "name": "hexa-templates",
   "displayName": "Hexa Templates",
   "description": "Hexa structure template language: syntax highlighting, diagnostics, completion, hover and a debugger.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "kewldan",
   "license": "MIT",
   "private": true,

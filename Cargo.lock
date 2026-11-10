@@ -2494,7 +2494,7 @@ dependencies = [
 
 [[package]]
 name = "hexa"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "boreal",
  "clipboard-rs",
@@ -2523,7 +2523,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-analysis"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "aho-corasick",
  "fast-tlsh",
@@ -2539,7 +2539,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2557,7 +2557,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "aho-corasick",
  "base64 0.23.1",
@@ -2587,7 +2587,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-diff"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "bzip2",
  "crc32fast",
@@ -2599,7 +2599,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-net"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.23.1",
  "flate2",
@@ -2623,7 +2623,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-proc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "hexa-core",
  "libc",
@@ -2638,7 +2638,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-re"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "adler2",
  "aho-corasick",
@@ -2660,7 +2660,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-script"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "hex",
  "hexa-core",
@@ -2676,7 +2676,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-sys"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "bzip2",
  "flate2",
@@ -2698,7 +2698,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-template"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gimli",
  "hexa-core",
@@ -2714,7 +2714,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-transform"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2743,7 +2743,7 @@ dependencies = [
 
 [[package]]
 name = "hexa-wasm"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "getrandom 0.4.3",
  "hexa-analysis",
