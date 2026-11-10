@@ -1,0 +1,141 @@
+/* Design tokens ported from the Hexa mockups (light/dark) plus high contrast. */
+:root {
+  --ui:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter,
+    system-ui, sans-serif;
+  --mono:
+    "SF Mono", ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, "DejaVu Sans Mono",
+    monospace;
+  --acc: #2f6bf0;
+  --rowh: 22px;
+  --fs: 12.5px;
+  --spring: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+  --ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+  color-scheme: light;
+}
+
+:root,
+[data-theme="light"] {
+  --win: #ececee;
+  --chrome: rgba(246, 246, 248, 0.88);
+  --side: #f4f4f6;
+  --ed: #ffffff;
+  --card: #ffffff;
+  --dot: rgba(0, 0, 0, 0.09);
+  --ink: #1d1d1f;
+  --ink2: #3c3c43;
+  --muted: #6b6b73;
+  --line: rgba(0, 0, 0, 0.09);
+  --hov: rgba(0, 0, 0, 0.055);
+  --hov2: rgba(0, 0, 0, 0.085);
+  --field: rgba(0, 0, 0, 0.045);
+  --segbg: rgba(0, 0, 0, 0.06);
+  --segon: #ffffff;
+  --tabon: #ffffff;
+  --pop: rgba(252, 252, 253, 0.94);
+  --popline: rgba(0, 0, 0, 0.1);
+  --rowcur: rgba(0, 0, 0, 0.028);
+  --zebra: rgba(0, 0, 0, 0.018);
+  --k0: #77777f;
+  --kp: #1d1d1f;
+  --kc: #b45309;
+  --kh: #3d4766;
+  --kf: #8b2fc9;
+  --mod: #c2410c;
+  --ins: #0f766e;
+  --del: #dc2626;
+  --match: rgba(250, 204, 21, 0.38);
+  --matchc: rgba(245, 158, 11, 0.8);
+  --toast: rgba(28, 28, 30, 0.94);
+  --toastink: #ffffff;
+  --scrim: rgba(20, 20, 24, 0.16);
+  --shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.08);
+  --tintA: 13%;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --win: #141416;
+  --chrome: rgba(38, 38, 42, 0.88);
+  --side: #1d1d20;
+  --ed: #161618;
+  --card: #1c1c1f;
+  --dot: rgba(255, 255, 255, 0.07);
+  --ink: #ececf1;
+  --ink2: #c9c9d1;
+  --muted: #9c9ca5;
+  --line: rgba(255, 255, 255, 0.08);
+  --hov: rgba(255, 255, 255, 0.065);
+  --hov2: rgba(255, 255, 255, 0.1);
+  --field: rgba(255, 255, 255, 0.06);
+  --segbg: rgba(255, 255, 255, 0.07);
+  --segon: #3a3a40;
+  --tabon: #2e2e33;
+  --pop: rgba(42, 42, 47, 0.92);
+  --popline: rgba(255, 255, 255, 0.1);
+  --rowcur: rgba(255, 255, 255, 0.035);
+  --zebra: rgba(255, 255, 255, 0.022);
+  --k0: #80808a;
+  --kp: #ececf1;
+  --kc: #f5a35e;
+  --kh: #a9b4d8;
+  --kf: #d4a0ff;
+  --mod: #fb923c;
+  --ins: #2dd4bf;
+  --del: #f87171;
+  --match: rgba(250, 204, 21, 0.24);
+  --matchc: rgba(250, 204, 21, 0.62);
+  --toast: rgba(244, 244, 246, 0.96);
+  --toastink: #111113;
+  --scrim: rgba(0, 0, 0, 0.38);
+  --shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  --tintA: 18%;
+  color-scheme: dark;
+}
+
+/* High contrast (DISP-25, UI-18): pure black, saturated, thicker lines. */
+[data-theme="contrast"] {
+  --win: #000000;
+  --chrome: #000000;
+  --side: #000000;
+  --ed: #000000;
+  --card: #0a0a0a;
+  --dot: rgba(255, 255, 255, 0.2);
+  --ink: #ffffff;
+  --ink2: #ffffff;
+  --muted: #d0d0d0;
+  --line: rgba(255, 255, 255, 0.55);
+  --hov: rgba(255, 255, 255, 0.16);
+  --hov2: rgba(255, 255, 255, 0.24);
+  --field: rgba(255, 255, 255, 0.12);
+  --segbg: rgba(255, 255, 255, 0.14);
+  --segon: #3d3d3d;
+  --tabon: #262626;
+  --pop: #0d0d0d;
+  --popline: rgba(255, 255, 255, 0.7);
+  --rowcur: rgba(255, 255, 255, 0.1);
+  --zebra: rgba(255, 255, 255, 0.06);
+  --k0: #bdbdbd;
+  --kp: #ffffff;
+  --kc: #ffb86b;
+  --kh: #8fd3ff;
+  --kf: #ff8cff;
+  --mod: #ffa94d;
+  --ins: #3ff0d0;
+  --del: #ff6b6b;
+  --match: rgba(255, 230, 0, 0.45);
+  --matchc: rgba(255, 200, 0, 0.9);
+  --toast: #ffffff;
+  --toastink: #000000;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow: 0 0 0 2px #ffffff;
+  --tintA: 30%;
+  color-scheme: dark;
+}
+
+/* Colour-blind friendly change markers (UI-18): blue/orange instead of red/green. */
+[data-cvd="1"] {
+  --mod: #e67e00;
+  --ins: #1f77ff;
+  --del: #e67e00;
+}
