@@ -1939,18 +1939,22 @@ impl<'m> Ts<'m> {
                 body.line(0, "} as const;");
                 body.line(0, &format!("export type {name} = bigint;"));
             } else {
-                body.line(0, &format!("export enum {name} {{"));
+                // A const object instead of `enum`: erasable syntax, so the
+                // file also runs under Node's type stripping and
+                // `erasableSyntaxOnly`.
+                body.line(0, &format!("export const {name} = {{"));
                 for (j, v) in e.variants.iter().enumerate() {
                     let note = v
                         .end
                         .map(|end| format!(" // ... {end}"))
                         .unwrap_or_default();
-                    body.line(
-                        1,
-                        &format!("{} = {},{note}", self.n.variants[i][j], v.value),
-                    );
+                    body.line(1, &format!("{}: {},{note}", self.n.variants[i][j], v.value));
                 }
-                body.line(0, "}");
+                body.line(0, "} as const;");
+                body.line(
+                    0,
+                    &format!("export type {name} = (typeof {name})[keyof typeof {name}];"),
+                );
             }
         }
         for i in 0..self.m.structs.len() {

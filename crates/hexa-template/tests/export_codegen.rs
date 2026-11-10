@@ -386,17 +386,29 @@ fn generated_typescript_runs() {
          import { readFileSync } from 'node:fs';\n\
          const b = readFileSync(process.argv[2]);\n\
          const r = parseHeader(new DataView(b.buffer, b.byteOffset, b.byteLength));\n\
-         console.log(r.value.magic, r.value.items[1].tag, r.value.delta, r.value.name, r.value.big, r.size);\n",
+         console.log(r.value.magic, r.value.items[1].tag, r.value.delta, r.value.name, String(r.value.big), r.size);\n",
     )
     .unwrap();
-    let out = Command::new("node")
-        .arg("--experimental-transform-types")
-        .arg("--no-warnings")
-        .arg(dir.join("main.ts"))
-        .arg(dir.join("sample.bin"))
-        .output()
-        .unwrap();
+    // Node 22–25 need the flag to run TypeScript; Node 26 runs it natively
+    // and rejects the flag.
+    let node = |flag: Option<&str>| {
+        let mut c = Command::new("node");
+        if let Some(f) = flag {
+            c.arg(f);
+        }
+        c.arg("--no-warnings")
+            .arg(dir.join("main.ts"))
+            .arg(dir.join("sample.bin"))
+            .output()
+            .unwrap()
+    };
+    let mut out = node(Some("--experimental-transform-types"));
     if !out.status.success() && String::from_utf8_lossy(&out.stderr).contains("bad option") {
+        out = node(None);
+    }
+    if !out.status.success()
+        && String::from_utf8_lossy(&out.stderr).contains("ERR_UNKNOWN_FILE_EXTENSION")
+    {
         return; // Node without TypeScript support.
     }
     assert!(

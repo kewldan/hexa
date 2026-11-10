@@ -34,6 +34,9 @@ fn make_zip(path: &Path) {
         "deflated.bin",
         SimpleFileOptions::default()
             .compression_method(CompressionMethod::Deflated)
+            // Unix permissions only mean something for a Unix entry; on
+            // Windows the writer would otherwise mark it as DOS.
+            .system(zip::System::Unix)
             .unix_permissions(0o640),
     )
     .unwrap();

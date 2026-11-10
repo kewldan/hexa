@@ -71,7 +71,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Diff, transform, analysis, RE, templates, scripting, disks, processes, network, CLI
-        run: cargo test --workspace --exclude hexa-core --exclude hexa --locked
+        run: cargo test --workspace --exclude hexa-core --exclude hexa --locked --no-fail-fast
 
   fuzz:
     name: Fuzz (short run)
