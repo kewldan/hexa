@@ -1,0 +1,192 @@
+{
+  "name": "hexa-templates",
+  "displayName": "Hexa Templates",
+  "description": "Hexa structure template language: syntax highlighting, diagnostics, completion, hover and a debugger.",
+  "version": "0.1.0",
+  "publisher": "kewldan",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kewldan/hexa"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Linters"
+  ],
+  "keywords": [
+    "hexa",
+    "hexpat",
+    "imhex",
+    "binary",
+    "template"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onDebugResolve:hexa-template",
+    "onDebugDynamicConfigurations:hexa-template"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "hexpat",
+        "aliases": [
+          "Hexa Template",
+          "hexpat"
+        ],
+        "extensions": [
+          ".hexpat",
+          ".hexa"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "hexpat",
+        "scopeName": "source.hexpat",
+        "path": "./syntaxes/hexpat.tmLanguage.json"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "hexpat"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "hexa-template",
+        "label": "Hexa Template",
+        "languages": [
+          "hexpat"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "template",
+              "data"
+            ],
+            "properties": {
+              "template": {
+                "type": "string",
+                "description": "Path to the template to run (.hexpat, .hexa, .pat; .bt and C headers are parsed in their dialects).",
+                "default": "${file}"
+              },
+              "data": {
+                "type": "string",
+                "description": "Path to the binary file the template is applied to.",
+                "default": "${workspaceFolder}/data.bin"
+              },
+              "rootType": {
+                "type": "string",
+                "description": "Type to instantiate at the start offset instead of running the top-level statements."
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Base offset in the data file where evaluation starts.",
+                "default": 0
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Pause before the first statement.",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "hexa-template",
+            "request": "launch",
+            "name": "Debug template",
+            "template": "${file}",
+            "data": "${workspaceFolder}/data.bin",
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Hexa Template: Launch",
+            "description": "Debug a structure template against a data file",
+            "body": {
+              "type": "hexa-template",
+              "request": "launch",
+              "name": "Debug template",
+              "template": "^\"\\${file}\"",
+              "data": "^\"\\${workspaceFolder}/${1:data.bin}\"",
+              "stopOnEntry": true
+            }
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "hexaTemplates.restartServer",
+        "title": "Restart Language Server",
+        "category": "Hexa Templates"
+      },
+      {
+        "command": "hexaTemplates.debugFile",
+        "title": "Debug Template Against File…",
+        "category": "Hexa Templates",
+        "icon": "$(debug-alt)",
+        "enablement": "editorLangId == hexpat"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "hexaTemplates.debugFile",
+          "when": "editorLangId == hexpat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hexa Templates",
+      "properties": {
+        "hexaTemplates.serverPath": {
+          "type": "string",
+          "default": "hexa-template-lsp",
+          "markdownDescription": "Path to the `hexa-template-lsp` binary. A bare name is looked up on `PATH`; a relative path is resolved against the first workspace folder.",
+          "scope": "machine-overridable"
+        },
+        "hexaTemplates.debugAdapterPath": {
+          "type": "string",
+          "default": "hexa-template-dap",
+          "markdownDescription": "Path to the `hexa-template-dap` binary. A bare name is looked up on `PATH`; a relative path is resolved against the first workspace folder.",
+          "scope": "machine-overridable"
+        },
+        "hexaTemplates.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "vscode:prepublish": "tsc -p .",
+    "package": "bunx @vscode/vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "~1.90.0",
+    "typescript": "^5.6.0"
+  }
+}

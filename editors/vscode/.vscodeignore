@@ -1,0 +1,7 @@
+src/**
+**/*.ts
+**/*.map
+tsconfig.json
+bun.lock
+.gitignore
+*.vsix
