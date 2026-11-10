@@ -171,6 +171,13 @@ function lowerBound(m: Match[], off: number): number {
   return lo;
 }
 
+function shortFloat(x: number): string {
+  if (Number.isNaN(x)) return "NaN";
+  if (!Number.isFinite(x)) return x > 0 ? "+∞" : "−∞";
+  const s = x.toPrecision(7);
+  return s.includes("e") ? x.toExponential(3) : String(Number(s));
+}
+
 function formatCell(view: Settings["cellView"], v: bigint, bytes: number, lower: boolean): string {
   const bits = BigInt(bytes * 8);
   switch (view) {
@@ -187,6 +194,22 @@ function formatCell(view: Settings["cellView"], v: bigint, bytes: number, lower:
     case "signed": {
       const sv = v >= 1n << (bits - 1n) ? v - (1n << bits) : v;
       return sv.toString(10);
+    }
+    case "char": {
+      const b = Number(v & 0xffn);
+      return b > 0x20 && b < 0x7f ? String.fromCharCode(b) : "·";
+    }
+    case "float": {
+      const dv = new DataView(new ArrayBuffer(8));
+      if (bytes === 4) {
+        dv.setUint32(0, Number(v));
+        return shortFloat(dv.getFloat32(0));
+      }
+      if (bytes === 8) {
+        dv.setBigUint64(0, v);
+        return shortFloat(dv.getFloat64(0));
+      }
+      return "—";
     }
     case "hexii": {
       const b = Number(v);

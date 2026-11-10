@@ -12,6 +12,7 @@ export type Dialog =
   | { kind: "settings"; section?: string }
   | { kind: "props" }
   | { kind: "followPointer" }
+  | { kind: "moveBlock" }
   | { kind: "confirm"; title: string; body: string; actions: ConfirmAction[] }
   | { kind: "recovery" }
   | { kind: "about" };

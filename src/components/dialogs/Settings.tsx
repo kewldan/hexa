@@ -345,6 +345,8 @@ export function SettingsDialog({ section }: { section?: string }) {
                     ["bin", "Двоичный"],
                     ["signed", "Знаковый"],
                     ["hexii", "HexII"],
+                    ["float", "Float (ячейка 4 или 8 байт)"],
+                    ["char", "Символы"],
                   ]}
                   onChange={p("cellView")}
                 />

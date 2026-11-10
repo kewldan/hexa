@@ -36,6 +36,8 @@ pub enum InspectType {
     Bf16,
     F32,
     F64,
+    F80,
+    F128,
     Ascii,
     Utf8,
     Utf16,
@@ -43,7 +45,7 @@ pub enum InspectType {
 }
 
 impl InspectType {
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 27] = [
         Self::Binary,
         Self::Octal,
         Self::Hex,
@@ -65,6 +67,8 @@ impl InspectType {
         Self::Bf16,
         Self::F32,
         Self::F64,
+        Self::F80,
+        Self::F128,
         Self::Ascii,
         Self::Utf8,
         Self::Utf16,
@@ -80,7 +84,8 @@ impl InspectType {
             Self::I32 | Self::U32 | Self::F32 | Self::Utf32 => 4,
             Self::I48 | Self::U48 => 6,
             Self::I64 | Self::U64 | Self::F64 => 8,
-            Self::I128 | Self::U128 => 16,
+            Self::I128 | Self::U128 | Self::F128 => 16,
+            Self::F80 => 10,
             Self::Utf8 | Self::Utf16 => return None,
         })
     }
@@ -108,6 +113,8 @@ impl InspectType {
             Self::Bf16 => "bfloat16",
             Self::F32 => "float32",
             Self::F64 => "float64",
+            Self::F80 => "float80",
+            Self::F128 => "float128",
             Self::Ascii => "ASCII",
             Self::Utf8 => "UTF-8",
             Self::Utf16 => "UTF-16",
@@ -177,6 +184,53 @@ fn float_str(v: f64) -> String {
     }
 }
 
+/// x87 80-bit extended precision (little-endian bytes) to the nearest f64.
+fn f80_to_f64(a: &[u8; 10]) -> f64 {
+    let mantissa = u64::from_le_bytes(a[..8].try_into().expect("8 bytes"));
+    let se = u16::from_le_bytes([a[8], a[9]]);
+    let sign = if se & 0x8000 != 0 { -1.0 } else { 1.0 };
+    let exp = i32::from(se & 0x7FFF);
+    if exp == 0x7FFF {
+        return if mantissa << 1 == 0 {
+            sign * f64::INFINITY
+        } else {
+            f64::NAN
+        };
+    }
+    if exp == 0 && mantissa == 0 {
+        return sign * 0.0;
+    }
+    // Explicit integer bit: value = mantissa / 2^63 * 2^(exp - 16383).
+    let e = if exp == 0 { 1 - 16383 } else { exp - 16383 };
+    sign * (mantissa as f64) * 2f64.powi(e - 63)
+}
+
+/// IEEE 754 binary128 (little-endian bytes) to the nearest f64.
+fn f128_to_f64(a: &[u8; 16]) -> f64 {
+    let v = u128::from_le_bytes(*a);
+    let sign = if v >> 127 != 0 { -1.0 } else { 1.0 };
+    let exp = ((v >> 112) & 0x7FFF) as i32;
+    let frac = v & ((1u128 << 112) - 1);
+    if exp == 0x7FFF {
+        return if frac == 0 {
+            sign * f64::INFINITY
+        } else {
+            f64::NAN
+        };
+    }
+    if exp == 0 && frac == 0 {
+        return sign * 0.0;
+    }
+    let (lead, e) = if exp == 0 {
+        (0.0, 1 - 16383)
+    } else {
+        (1.0, exp - 16383)
+    };
+    // Top 52 fraction bits are all an f64 can keep.
+    let top = (frac >> 60) as f64 / (1u64 << 52) as f64;
+    sign * (lead + top) * 2f64.powi(e)
+}
+
 fn utf8_char(bytes: &[u8]) -> Option<(char, usize)> {
     let first = *bytes.first()?;
     let n = match first {
@@ -233,6 +287,8 @@ pub fn decode(ty: InspectType, bytes: &[u8], endian: Endian) -> (Option<String>,
             ordered::<4>(bytes, endian).map(|a| float_str(f64::from(f32::from_le_bytes(a))))
         }
         InspectType::F64 => ordered::<8>(bytes, endian).map(|a| float_str(f64::from_le_bytes(a))),
+        InspectType::F80 => ordered::<10>(bytes, endian).map(|a| float_str(f80_to_f64(&a))),
+        InspectType::F128 => ordered::<16>(bytes, endian).map(|a| float_str(f128_to_f64(&a))),
         InspectType::Ascii => bytes.first().map(|&b| {
             if b < 0x80 {
                 show_char(char::from(b))
@@ -341,6 +397,9 @@ pub fn encode(ty: InspectType, text: &str, endian: Endian) -> Result<Vec<u8>> {
             let v: f64 = text.parse().map_err(|_| Error::invalid("not a number"))?;
             Ok(order(v.to_le_bytes().to_vec()))
         }
+        InspectType::F80 | InspectType::F128 => Err(Error::invalid(
+            "float80/float128 are shown with f64 precision and cannot be edited",
+        )),
         InspectType::Ascii | InspectType::Utf8 | InspectType::Utf16 | InspectType::Utf32 => {
             let mut chars = text.chars();
             let c = chars.next().ok_or_else(|| Error::invalid("empty"))?;
@@ -366,7 +425,11 @@ pub fn encode(ty: InspectType, text: &str, endian: Endian) -> Result<Vec<u8>> {
             let v = parse_int(text)?;
             let bits = width as u32 * 8;
             let ok = if t.is_signed() {
-                let min = -(1i128 << (bits - 1));
+                let min = if bits == 128 {
+                    i128::MIN
+                } else {
+                    -(1i128 << (bits - 1))
+                };
                 let max = if bits == 128 {
                     i128::MAX
                 } else {

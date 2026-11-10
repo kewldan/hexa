@@ -203,7 +203,11 @@ export function installMock() {
         if (!d) throw { kind: "notFound", message: "no doc" };
         return d;
       };
-      if (cmd !== "doc_type") typing = null;
+      if (
+        cmd.startsWith("doc_") &&
+        !["doc_type", "doc_read", "doc_changes", "doc_info", "doc_history"].includes(cmd)
+      )
+        typing = null;
       switch (cmd) {
         case "settings_get":
           return store("settings") ?? {};
@@ -377,7 +381,7 @@ export function installMock() {
               onRedoPath: true,
             },
           ];
-          d.undo.forEach((u, i) =>
+          for (const [i, u] of d.undo.entries()) {
             items.push({
               id: i + 1,
               parent: i,
@@ -386,8 +390,8 @@ export function installMock() {
               current: i === d.undo.length - 1,
               saved: false,
               onRedoPath: true,
-            }),
-          );
+            });
+          }
           return items;
         }
         case "doc_history_goto":

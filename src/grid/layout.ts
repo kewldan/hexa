@@ -31,6 +31,10 @@ export function cellChars(view: CellView, bytes: number): number {
   switch (view) {
     case "hex":
       return bytes * 2;
+    case "char":
+      return 1;
+    case "float":
+      return bytes >= 8 ? 17 : bytes >= 4 ? 12 : 6;
     case "hexii":
       return 2;
     case "dec":

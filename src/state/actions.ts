@@ -14,6 +14,7 @@ import {
   isCmdError,
   type Match,
   type Query,
+  type Scope,
 } from "../ipc/api";
 import { fmtSize, hexN } from "../lib/format";
 import { settings, useSettings } from "./settings";
@@ -937,7 +938,7 @@ export function lowerBound(arr: Match[], offset: number): number {
   return lo;
 }
 
-export async function findAll(query: Query, label: string) {
+export async function findAll(query: Query, label: string, scope: Scope | null = null) {
   const t = activeTab();
   if (!t) return;
   const prev = t.results?.job;
@@ -966,7 +967,7 @@ export async function findAll(query: Query, label: string) {
     );
   };
   try {
-    const job = await api.searchAll(t.id, query, null, 100_000, (e) => {
+    const job = await api.searchAll(t.id, query, scope, 100_000, (e) => {
       if (e.type === "batch") {
         pending = pending.concat(e.matches);
         flushTimer ??= setTimeout(flush, 60);

@@ -97,7 +97,10 @@ function useKeyboard() {
       if (t.column === "hex") {
         const n = Number.parseInt(e.key, 16);
         const s = useSettings.getState().s;
-        if (s.cellView !== "hex" || s.cellWidth !== 1) A.typeCellDigit(e.key);
+        if (s.cellView === "char") A.typeText(e.key);
+        else if (s.cellView === "float")
+          toast("Числа с плавающей точкой правятся в инспекторе", true);
+        else if (s.cellView !== "hex" || s.cellWidth !== 1) A.typeCellDigit(e.key);
         else if (Number.isFinite(n) && /^[0-9a-f]$/i.test(e.key)) A.typeHexNibble(n);
       } else {
         A.typeText(e.key);

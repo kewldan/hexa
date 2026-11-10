@@ -4,7 +4,7 @@ import type { NumType, Query } from "../ipc/api";
 import { groupDec } from "../lib/format";
 import * as A from "../state/actions";
 import { useSettings } from "../state/settings";
-import { type Tab, useTabs } from "../state/tabs";
+import { selection, type Tab, useTabs } from "../state/tabs";
 import { useUi } from "../state/ui";
 import { Icon } from "./icons";
 
@@ -40,6 +40,9 @@ export function FindBar({ tab }: { tab: Tab }) {
   const [endian, setEndian] = useState<"little" | "big" | "both">("little");
   const [tolerance, setTolerance] = useState("");
   const [error, setError] = useState("");
+  // SRCH-13/14: limit to the selection captured when the toggle was switched on.
+  const [inSel, setInSel] = useState<{ start: number; end: number } | null>(null);
+  const [align, setAlign] = useState(1);
   const encs = settings.searchEncodings;
 
   useEffect(() => {
@@ -84,13 +87,17 @@ export function FindBar({ tab }: { tab: Tab }) {
       setError("");
       const label = kind === "text" ? `«${q}»` : q;
       try {
-        await A.findAll(query, label);
+        const scope =
+          inSel || align > 1
+            ? { start: inSel?.start ?? 0, end: inSel?.end ?? tab.info.len, align }
+            : null;
+        await A.findAll(query, label, scope);
       } catch (e) {
         setError(String(e));
       }
     }, 220);
     return () => clearTimeout(timer);
-  }, [query, kind, q]);
+  }, [query, kind, q, inSel, align]);
 
   // Jump to the first match after the cursor once results arrive.
   const jumped = useRef<string>("");
@@ -201,6 +208,31 @@ export function FindBar({ tab }: { tab: Tab }) {
         <Icon.down />
       </button>
       <div className="fopts">
+        <button
+          type="button"
+          className={`tog${inSel ? " on" : ""}`}
+          title="Искать только в выделении"
+          onClick={() => {
+            if (inSel) return setInSel(null);
+            const s = selection(tab);
+            if (s.end > s.start) setInSel(s);
+          }}
+        >
+          {inSel ? `в выделении · ${inSel.end - inSel.start} Б` : "в выделении"}
+        </button>
+        <select
+          className="sel-input"
+          value={align}
+          onChange={(e) => setAlign(Number(e.target.value))}
+          aria-label="Выравнивание"
+          title="Только смещения, кратные N"
+        >
+          {[1, 2, 4, 8, 16].map((a) => (
+            <option key={a} value={a}>
+              {a === 1 ? "любое смещение" : `кратно ${a}`}
+            </option>
+          ))}
+        </select>
         {kind === "text" && (
           <>
             <button

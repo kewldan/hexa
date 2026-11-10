@@ -722,6 +722,51 @@ function PropsDialog() {
   );
 }
 
+function MoveBlockDialog() {
+  const tab = useActiveTab();
+  const to = useNumber("0");
+  if (!tab) return null;
+  const r = selectionOrByte(tab);
+  const inside = to.value !== null && to.value >= r.start && to.value <= r.end;
+  return (
+    <Modal
+      title="Переместить блок"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={closeDialog}>
+            Отмена
+          </button>
+          <button
+            type="button"
+            className="btn pri"
+            disabled={to.bad || to.value === null || inside || to.value > tab.info.len}
+            onClick={() => {
+              closeDialog();
+              if (to.value !== null)
+                A.edit({ op: "move", start: r.start, end: r.end, to: to.value });
+            }}
+          >
+            Переместить
+          </button>
+        </>
+      }
+    >
+      <div className="note">
+        Блок 0x{hexN(r.start)}…0x{hexN(r.end)} · {fmtSize(r.end - r.start)}. Байты не копируются:
+        перемещается ссылка на фрагмент.
+      </div>
+      <div className="row-f">
+        <span>Куда (смещение до перемещения)</span>
+        <input
+          className={`inp${to.bad || inside ? " bad" : ""}`}
+          value={to.text}
+          onChange={(e) => to.setText(e.target.value)}
+        />
+      </div>
+    </Modal>
+  );
+}
+
 function FollowPointerDialog() {
   const [bits, setBits] = useState<8 | 16 | 32 | 64>(32);
   const [endian, setEndian] = useState<"little" | "big">("little");
@@ -928,6 +973,8 @@ export function Dialogs() {
       return <PasteDialog text={d.text} />;
     case "props":
       return <PropsDialog />;
+    case "moveBlock":
+      return <MoveBlockDialog />;
     case "followPointer":
       return <FollowPointerDialog />;
     case "confirm":

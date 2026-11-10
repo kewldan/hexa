@@ -1,0 +1,119 @@
+import { expect, type Page, test } from "@playwright/test";
+
+const mod = process.platform === "darwin" ? "Meta" : "Control";
+
+async function invoke<T>(page: Page, cmd: string, args: Record<string, unknown>): Promise<T> {
+  return page.evaluate(
+    // biome-ignore lint/suspicious/noExplicitAny: test access to the IPC mock
+    ([c, a]) => (window as any).__TAURI_INTERNALS__.invoke(c, a),
+    [cmd, args] as const,
+  ) as Promise<T>;
+}
+
+async function bytesAt(page: Page, offset: number, len: number): Promise<string> {
+  const b = await invoke<number[]>(page, "doc_read", { id: 1, offset, len });
+  return b.map((x) => x.toString(16).padStart(2, "0")).join(" ");
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => localStorage.clear());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Открыть пример" }).click();
+  await expect(page.locator("[data-hx-grid]")).toBeVisible();
+  await page.locator("[data-hx-grid]").focus();
+});
+
+test("start screen leads to the editor", async ({ page }) => {
+  await expect(page.locator(".tab.on")).toContainText("Untitled");
+  await expect(page.locator(".sb")).toContainText("0x00000000");
+  await expect(page.locator(".insp")).toContainText("int32");
+});
+
+test("hex typing edits by nibbles and undo restores", async ({ page }) => {
+  const before = await bytesAt(page, 0, 2);
+  await page.keyboard.type("dead");
+  await expect.poll(() => bytesAt(page, 0, 2)).toBe("de ad");
+  await expect(page.locator(".sb")).toContainText("0x00000002");
+  await expect(page.locator(".tab.on")).toHaveClass(/mod/);
+  await page.keyboard.press(`${mod}+z`);
+  await expect.poll(() => bytesAt(page, 0, 2)).toBe(before);
+});
+
+test("keyboard navigation and selection", async ({ page }) => {
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".sb")).toContainText("0x00000011");
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect(page.locator(".sb")).toContainText("Выделено");
+  await expect(page.locator(".sb")).toContainText("3 · 0x3");
+});
+
+test("goto accepts expressions", async ({ page }) => {
+  await page.keyboard.press(`${mod}+l`);
+  const input = page.getByRole("textbox", { name: "Смещение или выражение" });
+  await input.fill("end-0x10");
+  await expect(page.locator(".gprev")).toContainText("0x00000FF0");
+  await input.press("Enter");
+  await expect(page.locator(".sb")).toContainText("0x00000FF0");
+});
+
+test("find bar finds text and steps through matches", async ({ page }) => {
+  await page.keyboard.press(`${mod}+f`);
+  await page.getByRole("button", { name: "Текст" }).click();
+  const input = page.getByRole("textbox", { name: "Что искать" });
+  await input.fill("Hexa");
+  await expect(page.locator(".fcount")).toContainText("1");
+  await input.press("Enter");
+  await expect(page.locator(".sb")).toContainText("Выделено");
+  await input.press("Escape");
+  await expect(page.locator(".findbar")).toHaveCount(0);
+});
+
+test("command palette runs commands and understands the wrong layout", async ({ page }) => {
+  await page.keyboard.press(`${mod}+k`);
+  const input = page.getByRole("textbox", { name: "Команда" });
+  await input.fill("ntv");
+  await expect(page.locator(".pi").first()).toContainText("тем");
+  await input.fill("режим");
+  await expect(page.locator(".pi.on")).toBeVisible();
+  await input.fill("Режим: вставка");
+  await input.press("Enter");
+  await expect(page.locator(".sbi.mode")).toHaveText("INS");
+});
+
+test("insert mode inserts and delete removes", async ({ page }) => {
+  await page.keyboard.press("Insert");
+  await expect(page.locator(".sbi.mode")).toHaveText("INS");
+  const len0 = (await invoke<{ len: number }>(page, "doc_info", { id: 1 })).len;
+  await page.keyboard.type("00");
+  await expect
+    .poll(async () => (await invoke<{ len: number }>(page, "doc_info", { id: 1 })).len)
+    .toBe(len0 + 1);
+  await page.keyboard.press("Backspace");
+  await expect
+    .poll(async () => (await invoke<{ len: number }>(page, "doc_info", { id: 1 })).len)
+    .toBe(len0);
+});
+
+test("panels can be moved to the other side", async ({ page }) => {
+  const tab = page.locator('[data-side="left"] .side-tab', { hasText: "Хэши" });
+  const target = page.locator('[data-side="right"]');
+  await tab.hover();
+  await page.mouse.down();
+  const box = (await target.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + 10, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('[data-side="right"] .side-tab', { hasText: "Хэши" })).toBeVisible();
+});
+
+test("settings switch the theme and persist", async ({ page }) => {
+  await page.keyboard.press(`${mod}+,`);
+  await page.getByRole("combobox").first().selectOption("contrast");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "contrast");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(600); // settings are saved with a debounce
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "contrast");
+});

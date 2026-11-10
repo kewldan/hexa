@@ -4,7 +4,7 @@ import { api, type EditMode, type Endian, type SaveOptions, type ShareMode } fro
 
 export type Theme = "system" | "light" | "dark" | "contrast";
 export type Density = "compact" | "regular" | "comfortable";
-export type CellView = "hex" | "dec" | "oct" | "bin" | "signed" | "hexii";
+export type CellView = "hex" | "dec" | "oct" | "bin" | "signed" | "hexii" | "float" | "char";
 export type Column = "offset" | "hex" | "text";
 export type NonPrintable = "dot" | "pictures" | "blank";
 export type PanelId = "history" | "hashes" | "results" | "inspector";

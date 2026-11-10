@@ -321,6 +321,14 @@ export const COMMANDS: Command[] = [
     run: () => swap(8),
   },
   {
+    id: "edit.moveBlock",
+    title: "Переместить выделение в…",
+    group: "Правка",
+    doc: true,
+    write: true,
+    run: () => openDialog({ kind: "moveBlock" }),
+  },
+  {
     id: "edit.reverse",
     title: "Развернуть выделение",
     group: "Правка",
@@ -779,7 +787,7 @@ function cycleTab(dir: number) {
 }
 
 function cycleCellView() {
-  const order = ["hex", "dec", "oct", "bin", "signed", "hexii"] as const;
+  const order = ["hex", "dec", "oct", "bin", "signed", "hexii", "float", "char"] as const;
   const i = order.indexOf(settings().cellView);
   s().set({ cellView: order[(i + 1) % order.length] });
 }

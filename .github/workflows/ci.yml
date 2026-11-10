@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  lint:
+    name: Format & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: oven-sh/setup-bun@v2
+      - name: Linux dependencies for Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: bun install --frozen-lockfile
+      - name: Biome (format + lint)
+        run: bunx biome ci .
+      - name: TypeScript
+        run: bunx tsc --noEmit
+      - name: Build frontend (needed by the Tauri crate)
+        run: bunx vite build
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked
+
+  core:
+    name: Core tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Unit, integration and property tests (debug, overflow checks on)
+        run: cargo test -p hexa-core --locked
+      - name: Property tests with more cases (release)
+        run: cargo test -p hexa-core --release --locked
+        env:
+          PROPTEST_CASES: 512
+
+  fuzz:
+    name: Fuzz (short run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/hexa-core/fuzz
+      - run: cargo install cargo-fuzz --locked
+      - name: document_ops for 2 minutes
+        working-directory: crates/hexa-core
+        run: cargo fuzz run document_ops -- -max_total_time=120 -max_len=4096
+
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Unit tests
+        run: bunx vitest run
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: UI tests (mock backend)
+        run: bunx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: test-results
+          retention-days: 7
+
+  bundle:
+    name: Bundle (${{ matrix.name }})
+    needs: [lint, core, frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            args: --target universal-apple-darwin
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - name: Linux
+            os: ubuntu-22.04
+            args: ""
+            targets: ""
+          - name: Windows
+            os: windows-latest
+            args: ""
+            targets: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+      - uses: oven-sh/setup-bun@v2
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: bun install --frozen-lockfile
+      - name: Build bundles
+        run: bun run tauri build ${{ matrix.args }}
+        env:
+          RUSTFLAGS: ""
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hexa-${{ matrix.name }}
+          path: |
+            target/**/release/bundle/**/*.dmg
+            target/**/release/bundle/**/*.app.tar.gz
+            target/**/release/bundle/**/*.deb
+            target/**/release/bundle/**/*.rpm
+            target/**/release/bundle/**/*.AppImage
+            target/**/release/bundle/**/*.msi
+            target/**/release/bundle/**/*.exe
+          if-no-files-found: warn
+          retention-days: 14
