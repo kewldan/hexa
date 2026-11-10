@@ -2474,6 +2474,7 @@ name = "hexa-re"
 version = "0.1.0"
 dependencies = [
  "adler2",
+ "aho-corasick",
  "base64 0.23.1",
  "capstone",
  "cpp_demangle",
