@@ -1,0 +1,12 @@
+/target
+node_modules
+/dist
+*.log
+.DS_Store
+/crates/hexa-core/fuzz/target
+/crates/hexa-core/fuzz/corpus
+/crates/hexa-core/fuzz/artifacts
+/src-tauri/gen/schemas
+/coverage
+/test-results
+/playwright-report
