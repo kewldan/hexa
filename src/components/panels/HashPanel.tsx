@@ -92,10 +92,12 @@ export function HashPanel({ tab }: { tab: Tab }) {
     <>
       <div className="ph">
         <span className="cap">Хэши</span>
-        <span className="tag">
-          {has
-            ? `выделение · ${fmtSize(range.end - range.start)}`
-            : `файл · ${fmtSize(tab.info.len)}`}
+        <span
+          className="tag"
+          style={{ flex: "none" }}
+          title={has ? "Хэш выделения" : "Хэш всего файла"}
+        >
+          {has ? `выд. ${fmtSize(range.end - range.start)}` : fmtSize(tab.info.len)}
         </span>
         <div className="grow" />
         <button

@@ -107,6 +107,9 @@ export function StartScreen() {
             </div>
           </div>
           <div className={`drop${over ? " over" : ""}`}>
+            <svg className="drop-border" aria-hidden="true">
+              <rect width="100%" height="100%" rx="16" ry="16" />
+            </svg>
             <div className="dicon" aria-hidden="true">
               <Icon.upload />
             </div>

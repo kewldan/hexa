@@ -175,7 +175,6 @@ export function Sidebar({ side, tab }: { side: "left" | "right"; tab: Tab }) {
           ))}
         </div>
         <div className="panel-body" key={active ?? "none"}>
-          {active && panels.length > 3 && <div className="panel-title">{TITLES[active]}</div>}
           {active &&
             (() => {
               const P = PANELS[active];
