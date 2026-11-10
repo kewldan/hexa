@@ -316,6 +316,8 @@ export const api = {
   redo: (id: number) => invoke<EditResult>("doc_redo", { id }),
   history: (id: number) => invoke<HistoryItem[]>("doc_history", { id }),
   historyGoto: (id: number, entry: number) => invoke<EditResult>("doc_history_goto", { id, entry }),
+  historyRevert: (id: number, entry: number) =>
+    invoke<EditResult>("doc_history_revert", { id, entry }),
   setMode: (id: number, mode: EditMode) => invoke<DocInfo>("doc_set_mode", { id, mode }),
   setFixed: (id: number, fixed: boolean) => invoke<DocInfo>("doc_set_fixed", { id, fixed }),
   save: (id: number, opts: SaveOptions, onProgress?: (p: SaveProgress) => void) =>
@@ -402,7 +404,7 @@ export const api = {
     invoke<number[]>("encode_text", { text, encoding }),
   parseHex: (text: string) => invoke<number[]>("parse_hex", { text }),
   clipCopy: (id: number, start: number, end: number, format?: CopyFormat) =>
-    invoke<{ text: string | null; len: number }>("clip_copy", {
+    invoke<{ text: string | null; len: number; written: boolean }>("clip_copy", {
       id,
       start,
       end,
@@ -413,6 +415,8 @@ export const api = {
   clipInfo: () => invoke<{ len: number; text: string | null } | null>("clip_info"),
   clipPaste: (id: number, pos: number, end: number | null, overwrite: boolean) =>
     invoke<EditResult>("clip_paste", { id, pos, end, overwrite }),
+  clipPasteAuto: (id: number, pos: number, end: number | null, overwrite: boolean) =>
+    invoke<EditResult | null>("clip_paste_auto", { id, pos, end, overwrite }),
   clipParse: (text: string) => invoke<PasteCandidate[]>("clip_parse", { text }),
 
   settingsGet: () => invoke<Record<string, unknown>>("settings_get"),

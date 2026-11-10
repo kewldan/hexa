@@ -62,7 +62,7 @@ export function HexGrid({ tab }: { tab: Tab }) {
         cw,
         rowH,
         width: size.w,
-        offsetDigits: offsetWidth(tab.info.len + s.baseAddress, s.offsetBase),
+        offsetDigits: offsetWidth(tab.info.len + s.baseAddress, s.offsetBase, s.offsetSegment),
       }),
     [s, cw, rowH, size.w, tab.info.len],
   );

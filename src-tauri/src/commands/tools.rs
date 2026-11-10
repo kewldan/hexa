@@ -9,8 +9,12 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
 use super::doc::{EditResult, mutate};
+use crate::clipboard;
 use crate::error::{CmdError, CmdResult};
 use crate::state::{AppState, InternalClip};
+use hexa_core::Tree;
+use hexa_core::piece::Piece;
+use std::sync::atomic::Ordering;
 
 /// Largest selection copied to the system clipboard as text.
 const MAX_CLIPBOARD_TEXT: u64 = 16 << 20;
@@ -215,10 +219,12 @@ pub struct CopyResult {
     /// Text for the system clipboard; `None` when the selection is too big.
     pub text: Option<String>,
     pub len: u64,
+    /// Whether the backend already wrote the system clipboard (text + bytes).
+    pub written: bool,
 }
 
 /// Copies a selection: the pieces go to the internal clipboard (no bytes are
-/// copied), a text rendering goes to the system clipboard (EDIT-10…14).
+/// copied), text and raw bytes go to the system clipboard (EDIT-10…17).
 #[tauri::command]
 pub fn clip_copy(
     state: State<'_, AppState>,
@@ -237,20 +243,81 @@ pub fn clip_copy(
     }
     let slice = tree.slice(start, end);
     let len = end - start;
-    let text = if len <= MAX_CLIPBOARD_TEXT {
-        let bytes = slice
-            .read_vec(0, len as usize)
-            .map_err(|e| CmdError::from(hexa_core::Error::from(e)))?;
-        let fmt = format.unwrap_or(CopyFormat::HexSpaced);
-        Some(format::copy_as(&bytes, &fmt))
+    let bytes = if len <= MAX_CLIPBOARD_TEXT.max(clipboard::MAX_RAW) {
+        Some(
+            slice
+                .read_vec(0, len as usize)
+                .map_err(|e| CmdError::from(hexa_core::Error::from(e)))?,
+        )
     } else {
         None
     };
+    let text = bytes
+        .as_ref()
+        .filter(|_| len <= MAX_CLIPBOARD_TEXT)
+        .map(|b| format::copy_as(b, &format.unwrap_or(CopyFormat::HexSpaced)));
+    let seq = state.clip_seq.fetch_add(1, Ordering::Relaxed) + 1;
+    let raw = bytes.as_deref().filter(|_| len <= clipboard::MAX_RAW);
+    let payload = clipboard::encode(std::process::id(), seq, len, raw);
+    let shown = text
+        .clone()
+        .unwrap_or_else(|| format!("[Hexa: {len} bytes, too large to copy as text]"));
+    let written = clipboard::write(&shown, payload);
     *state.clip.lock() = Some(InternalClip {
         tree: slice,
         text: text.clone(),
+        seq,
     });
-    Ok(CopyResult { text, len })
+    Ok(CopyResult { text, len, written })
+}
+
+/// Pastes what Hexa put on the system clipboard: the internal pieces when
+/// this instance copied them, raw bytes from another instance otherwise.
+/// `None` means the clipboard holds no Hexa data (the UI parses its text).
+#[tauri::command]
+pub fn clip_paste_auto(
+    state: State<'_, AppState>,
+    id: u64,
+    pos: u64,
+    end: Option<u64>,
+    overwrite: bool,
+) -> CmdResult<Option<EditResult>> {
+    let Some(p) = clipboard::read() else {
+        return Ok(None);
+    };
+    let internal = state.clip.lock().clone();
+    let tree = match internal {
+        Some(c) if p.pid == std::process::id() && p.seq == c.seq => c.tree,
+        _ => match p.bytes {
+            Some(b) if b.is_empty() => Tree::new(),
+            Some(b) => Tree::from_piece(Piece::bytes(b)),
+            None => {
+                return Err(CmdError::invalid(format!(
+                    "another Hexa window copied {} bytes — too many to pass between programs",
+                    p.len
+                )));
+            }
+        },
+    };
+    paste_tree(&state, id, pos, end, overwrite, &tree).map(Some)
+}
+
+fn paste_tree(
+    state: &AppState,
+    id: u64,
+    pos: u64,
+    end: Option<u64>,
+    overwrite: bool,
+    tree: &Tree,
+) -> CmdResult<EditResult> {
+    mutate(state, id, |d| {
+        let c = match end {
+            Some(e) if e > pos => d.replace_tree(pos, e, tree, "Paste")?,
+            _ if overwrite => d.overwrite_tree(pos, tree, "Paste")?,
+            _ => d.insert_tree(pos, tree, "Paste")?,
+        };
+        Ok(Some(c))
+    })
 }
 
 /// Formats a selection without touching the internal clipboard.
@@ -309,14 +376,7 @@ pub fn clip_paste(
         .lock()
         .clone()
         .ok_or_else(|| CmdError::invalid("the clipboard is empty"))?;
-    mutate(&state, id, |d| {
-        let c = match end {
-            Some(e) if e > pos => d.replace_tree(pos, e, &clip.tree, "Paste")?,
-            _ if overwrite => d.overwrite_tree(pos, &clip.tree, "Paste")?,
-            _ => d.insert_tree(pos, &clip.tree, "Paste")?,
-        };
-        Ok(Some(c))
-    })
+    paste_tree(&state, id, pos, end, overwrite, &clip.tree)
 }
 
 /// Interpretations of clipboard text (EDIT-16).

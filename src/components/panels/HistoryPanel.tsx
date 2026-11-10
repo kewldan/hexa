@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, type HistoryItem } from "../../ipc/api";
 import * as A from "../../state/actions";
 import type { Tab } from "../../state/tabs";
+import { useUi } from "../../state/ui";
 
 function time(ms: number): string {
   return new Date(ms).toLocaleTimeString("ru-RU", {
@@ -10,6 +11,17 @@ function time(ms: number): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+/** Whether `id` lies on the path from the root to the current entry. */
+function onCurrentPath(items: HistoryItem[], id: number): boolean {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  let n = items.find((i) => i.current);
+  while (n) {
+    if (n.id === id) return true;
+    n = n.parent === null ? undefined : byId.get(n.parent);
+  }
+  return false;
 }
 
 function depthOf(items: HistoryItem[]): Map<number, number> {
@@ -77,7 +89,30 @@ export function HistoryPanel({ tab }: { tab: Tab }) {
                 ["--delay" as string]: `${Math.min(i, 12) * 0.02}s`,
               }}
               onClick={() => A.historyGoto(h.id)}
-              title={h.saved ? "Сохранённое состояние" : undefined}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                useUi.getState().set({
+                  menu: {
+                    x: e.clientX,
+                    y: e.clientY,
+                    items: [
+                      { header: h.id === 0 ? "Исходный файл" : `${label(h.label)} · #${h.id}` },
+                      { label: "Перейти к этому состоянию", run: () => A.historyGoto(h.id) },
+                      {
+                        label: "Отменить только эту правку",
+                        disabled:
+                          h.id === 0 || !(h.onRedoPath || h.current) || !onCurrentPath(items, h.id),
+                        run: () => A.historyRevert(h.id),
+                      },
+                    ],
+                  },
+                });
+              }}
+              title={
+                h.saved
+                  ? "Сохранённое состояние"
+                  : "Клик — перейти, правый клик — отменить только эту правку"
+              }
             >
               <span className={`node${h.current ? " cur" : ""}${h.saved ? " saved" : ""}`} />
               <span className="t">
@@ -116,5 +151,6 @@ const LABELS: Record<string, string> = {
 };
 
 function label(l: string) {
+  if (l.startsWith("Revert #")) return `Откат правки ${l.slice(7)}`;
   return LABELS[l] ?? l;
 }

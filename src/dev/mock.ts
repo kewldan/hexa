@@ -496,7 +496,7 @@ export function installMock() {
           const d = doc();
           clip = d.data.slice(a.start, a.end);
           clipText = hexText(clip);
-          return { text: clipText, len: clip.length };
+          return { text: clipText, len: clip.length, written: false };
         }
         case "copy_as":
           return hexText(doc().data.slice(a.start, a.end));
@@ -505,6 +505,17 @@ export function installMock() {
         case "clip_paste": {
           const d = doc();
           if (!clip) return err("invalid", "empty clipboard");
+          const end = a.end ?? (a.overwrite ? Math.min(a.pos + clip.length, d.data.length) : a.pos);
+          return commit(d, splice(d.data, a.pos, end, clip), "Paste", {
+            start: a.pos,
+            removed: end - a.pos,
+            inserted: clip.length,
+          });
+        }
+        case "clip_paste_auto": {
+          // The mock has no system clipboard formats: same-window copies only.
+          const d = doc();
+          if (!clip || clipText === null) return null;
           const end = a.end ?? (a.overwrite ? Math.min(a.pos + clip.length, d.data.length) : a.pos);
           return commit(d, splice(d.data, a.pos, end, clip), "Paste", {
             start: a.pos,

@@ -117,3 +117,17 @@ test("settings switch the theme and persist", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "contrast");
 });
+
+test("copy and paste a selection", async ({ page }) => {
+  const info = () => invoke<{ len: number }>(page, "doc_info", { id: 1 });
+  const len0 = (await info()).len;
+  const src = await bytesAt(page, 0, 3);
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press(`${mod}+c`);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Insert");
+  await page.keyboard.press(`${mod}+v`);
+  await expect.poll(async () => (await info()).len).toBe(len0 + 3);
+  await expect.poll(() => bytesAt(page, 0x12, 3)).toBe(src);
+});

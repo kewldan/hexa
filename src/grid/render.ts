@@ -316,7 +316,7 @@ export function renderGrid(p: RenderInput): void {
         sign = d < 0 ? "-" : d > 0 ? "+" : " ";
         shown = Math.abs(d);
       }
-      const { z, v } = fmtOffset(shown, s.offsetBase, l.offsetDigits);
+      const { z, v } = fmtOffset(shown, s.offsetBase, l.offsetDigits, s.offsetSegment);
       ctx.textAlign = "left";
       let x = l.offsetX;
       if (sign) {

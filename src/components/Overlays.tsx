@@ -228,6 +228,7 @@ export function GotoDialog() {
         selStart: sel.start,
         selEnd: sel.end,
         bytesPerRow: A.viewport.bpr,
+        segmentSize: s.offsetSegment,
       });
       const v = r.value - (r.kind === "absolute" ? s.baseAddress : 0);
       preview =

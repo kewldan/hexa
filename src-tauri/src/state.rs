@@ -117,6 +117,8 @@ pub struct DocInfo {
 pub struct InternalClip {
     pub tree: Tree,
     pub text: Option<String>,
+    /// Sequence number written into the system clipboard payload.
+    pub seq: u64,
 }
 
 #[derive(Debug, Default)]
@@ -124,6 +126,7 @@ pub struct AppState {
     pub docs: RwLock<HashMap<u64, Arc<DocEntry>>>,
     next_id: AtomicU64,
     pub clip: Mutex<Option<InternalClip>>,
+    pub clip_seq: AtomicU64,
     pub jobs: Mutex<HashMap<u64, Cancel>>,
     next_job: AtomicU64,
     pub initial_files: Mutex<Vec<PathBuf>>,

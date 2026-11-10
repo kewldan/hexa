@@ -552,6 +552,19 @@ export async function redo() {
   }
 }
 
+export async function historyRevert(entry: number) {
+  const t = activeTab();
+  if (!t) return;
+  try {
+    const r = await api.historyRevert(t.id, entry);
+    applyResult(t.id, r, r.change?.start);
+    if (r.change) flashRange(r.change.start, r.change.start + r.change.inserted);
+    toast(`Правка #${entry} отменена, остальные сохранены`);
+  } catch (e) {
+    report(e);
+  }
+}
+
 export async function historyGoto(entry: number) {
   const t = activeTab();
   if (!t) return;
@@ -753,7 +766,7 @@ export async function copy(format?: CopyFormat, cut = false) {
   const { start, end } = selectionOrByte(t);
   try {
     const r = await api.clipCopy(t.id, start, end, format);
-    if (r.text !== null) await writeText(r.text);
+    if (!r.written && r.text !== null) await writeText(r.text);
     if (cut) {
       await deleteBytes(false);
       toast(`Вырезано ${fmtSize(r.len)}`);
@@ -791,19 +804,17 @@ export async function paste(mode: "auto" | "insert" | "overwrite" = "auto") {
   const sel = selection(t);
   const hasSel = sel.end > sel.start;
   try {
-    const [text, internal] = await Promise.all([readText().catch(() => null), api.clipInfo()]);
-    if (internal && (internal.text === null || internal.text === text)) {
-      const r = await api.clipPaste(
-        t.id,
-        hasSel ? sel.start : t.cursor,
-        hasSel ? sel.end : null,
-        overwrite,
-      );
-      const at = hasSel ? sel.start : t.cursor;
-      applyResult(t.id, r, Math.min(at + internal.len, r.info.len));
-      flashRange(at, at + internal.len);
+    // Hexa's own clipboard format first: pieces from this window, raw bytes
+    // from another Hexa (EDIT-17).
+    const at = hasSel ? sel.start : t.cursor;
+    const own = await api.clipPasteAuto(t.id, at, hasSel ? sel.end : null, overwrite);
+    if (own) {
+      const n = own.change?.inserted ?? 0;
+      applyResult(t.id, own, Math.min(at + n, own.info.len));
+      flashRange(at, at + n);
       return;
     }
+    const text = await readText().catch(() => null);
     if (!text) return toast("Буфер обмена пуст", true);
     const candidates = await api.clipParse(text);
     if (candidates.length > 1 && candidates[0].kind !== "hex") {

@@ -39,7 +39,9 @@ export interface Settings {
   cellWidth: 1 | 2 | 4 | 8;
   cellEndian: Endian;
   lowercase: boolean;
-  offsetBase: "hex" | "dec" | "oct";
+  offsetBase: "hex" | "dec" | "oct" | "seg";
+  /** Segment size for the segment:offset form. */
+  offsetSegment: number;
   baseAddress: number;
   offsetRelative: boolean;
   columns: Column[];
@@ -95,6 +97,7 @@ export const DEFAULTS: Settings = {
   cellEndian: "little",
   lowercase: false,
   offsetBase: "hex",
+  offsetSegment: 0x10000,
   baseAddress: 0,
   offsetRelative: false,
   columns: ["offset", "hex", "text"],

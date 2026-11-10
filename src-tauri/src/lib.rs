@@ -3,6 +3,7 @@
 // Tauri commands receive their arguments by value.
 #![allow(clippy::needless_pass_by_value)]
 
+mod clipboard;
 mod commands;
 mod elevate;
 mod error;
@@ -124,6 +125,7 @@ pub fn run() {
             commands::doc::doc_redo,
             commands::doc::doc_history,
             commands::doc::doc_history_goto,
+            commands::doc::doc_history_revert,
             commands::doc::doc_set_mode,
             commands::doc::doc_set_fixed,
             commands::doc::doc_save,
@@ -155,6 +157,7 @@ pub fn run() {
             commands::tools::copy_as,
             commands::tools::clip_info,
             commands::tools::clip_paste,
+            commands::tools::clip_paste_auto,
             commands::tools::clip_parse,
             commands::app::settings_get,
             commands::app::settings_set,

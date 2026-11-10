@@ -295,6 +295,16 @@ pub fn doc_history_goto(
     })
 }
 
+/// Reverts one earlier edit, keeping later ones (CORE-13).
+#[tauri::command]
+pub fn doc_history_revert(
+    state: State<'_, AppState>,
+    id: u64,
+    entry: usize,
+) -> CmdResult<EditResult> {
+    mutate(&state, id, |d| d.revert_entry(entry).map(Some))
+}
+
 #[tauri::command]
 pub fn doc_set_mode(state: State<'_, AppState>, id: u64, mode: EditMode) -> CmdResult<DocInfo> {
     Ok(mutate(&state, id, |d| d.set_mode(mode).map(|()| None))?.info)

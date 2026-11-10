@@ -31,10 +31,23 @@ export function fmtSize(n: number): string {
   return `${v.toFixed(v < 10 ? 1 : 0).replace(".", ",")} ${UNITS[i]}`;
 }
 
-export type OffsetBase = "hex" | "dec" | "oct";
+export type OffsetBase = "hex" | "dec" | "oct" | "seg";
+
+/** Segment:offset form, `SSSS:OOOO` for 64 KiB segments (DISP-06). */
+export function fmtSegment(n: number, segSize: number): string {
+  const size = Math.max(1, segSize);
+  const offDigits = Math.max(4, hexN(size - 1).length);
+  return `${hexN(Math.floor(n / size), 4)}:${hexN(n % size, offDigits)}`;
+}
 
 /** Offset text with the zero-padded prefix separated (for dimming). */
-export function fmtOffset(n: number, base: OffsetBase, width: number): { z: string; v: string } {
+export function fmtOffset(
+  n: number,
+  base: OffsetBase,
+  width: number,
+  segSize = 0x10000,
+): { z: string; v: string } {
+  if (base === "seg") return { z: "", v: fmtSegment(n, segSize) };
   const raw = base === "hex" ? hexN(n) : base === "oct" ? n.toString(8) : String(n);
   const padded = raw.length < width ? "0".repeat(width - raw.length) + raw : raw;
   const firstNonZero = padded.search(/[^0]/);
@@ -42,7 +55,8 @@ export function fmtOffset(n: number, base: OffsetBase, width: number): { z: stri
   return { z: padded.slice(0, cut), v: padded.slice(cut) };
 }
 
-export function offsetWidth(maxOffset: number, base: OffsetBase): number {
+export function offsetWidth(maxOffset: number, base: OffsetBase, segSize = 0x10000): number {
+  if (base === "seg") return fmtSegment(maxOffset, segSize).length;
   const digits =
     base === "hex"
       ? Math.max(1, Math.ceil(Math.log2(maxOffset + 1) / 4))

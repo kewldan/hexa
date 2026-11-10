@@ -182,6 +182,27 @@ impl History {
         true
     }
 
+    /// Tree before entry `id` and the change the entry made.
+    pub(crate) fn entry_change(&self, id: usize) -> Option<(Tree, Change)> {
+        let e = self.entries.get(id)?;
+        let parent = e.parent?;
+        Some((self.entries[parent].tree.clone(), e.change?))
+    }
+
+    /// Changes made after entry `id` up to the current entry, oldest first;
+    /// `None` when `id` is not on the path to the current entry.
+    pub(crate) fn changes_after(&self, id: usize) -> Option<Vec<Change>> {
+        let mut out = Vec::new();
+        let mut n = self.current;
+        while n != id {
+            let e = &self.entries[n];
+            out.push(e.change?);
+            n = e.parent?;
+        }
+        out.reverse();
+        Some(out)
+    }
+
     pub fn mark_saved(&mut self) {
         self.saved = Some(self.current);
     }

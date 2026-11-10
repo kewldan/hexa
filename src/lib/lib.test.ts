@@ -27,6 +27,8 @@ describe("goto expressions", () => {
     expect(evalExpr("s:2", ctx).value).toBe(1024);
     expect(evalExpr("r:3", ctx).value).toBe(48);
     expect(evalExpr("p:1", ctx).value).toBe(4096);
+    expect(evalExpr("0001:0010", ctx).value).toBe(0x10010);
+    expect(evalExpr("12:34", { ...ctx, segmentSize: 0x100 }).value).toBe(0x1234);
   });
   it("reports errors", () => {
     expect(() => evalExpr("", ctx)).toThrow();
@@ -44,6 +46,9 @@ describe("formatting", () => {
     expect(fmtOffset(0x21, "hex", 8)).toEqual({ z: "000000", v: "21" });
     expect(fmtOffset(0, "hex", 8)).toEqual({ z: "0000000", v: "0" });
     expect(offsetWidth(0xffffffffff, "hex")).toBe(10);
+    expect(fmtOffset(0x12345, "seg", 0)).toEqual({ z: "", v: "0001:2345" });
+    expect(fmtOffset(0x1234, "seg", 0, 0x100)).toEqual({ z: "", v: "0012:0034" });
+    expect(offsetWidth(0x12345, "seg")).toBe(9);
   });
   it("classifies bytes", () => {
     expect([0, 0x41, 0x0a, 0x80, 0xff].map(byteKind)).toEqual([0, 1, 2, 3, 4]);

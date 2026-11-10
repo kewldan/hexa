@@ -381,10 +381,23 @@ export function SettingsDialog({ section }: { section?: string }) {
                     ["hex", "Hex"],
                     ["dec", "Десятичные"],
                     ["oct", "Восьмеричные"],
+                    ["seg", "Сегмент:смещение"],
                   ]}
                   onChange={p("offsetBase")}
                 />
               </Row>
+              {s.offsetBase === "seg" && (
+                <Row label="Размер сегмента (hex)">
+                  <input
+                    className="inp"
+                    value={s.offsetSegment.toString(16).toUpperCase()}
+                    onChange={(e) => {
+                      const v = Number.parseInt(e.target.value || "0", 16);
+                      if (Number.isFinite(v) && v > 0) set({ offsetSegment: v });
+                    }}
+                  />
+                </Row>
+              )}
               <Row label="Базовый адрес (hex)">
                 <input
                   className="inp"

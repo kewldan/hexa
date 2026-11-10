@@ -201,6 +201,56 @@ fn scaled_str(negative: bool, m: f64, e2: i32) -> String {
     format!("{sign}{mant:.6}e{exp}")
 }
 
+/// Splits a finite non-zero f64 into (unbiased exponent, 52-bit fraction
+/// without the leading one), normalising subnormals.
+fn f64_parts(v: f64) -> (i32, u64) {
+    let bits = v.to_bits();
+    let exp = ((bits >> 52) & 0x7FF) as i32;
+    let frac = bits & ((1u64 << 52) - 1);
+    if exp == 0 {
+        let p = 63 - frac.leading_zeros() as i32; // highest set bit
+        let rest = (frac ^ (1u64 << p)) << (52 - p);
+        (p - 1074, rest)
+    } else {
+        (exp - 1023, frac)
+    }
+}
+
+/// Exact conversion of an f64 to x87 extended precision (little-endian).
+fn f64_to_f80(v: f64) -> [u8; 10] {
+    let sign: u16 = if v.is_sign_negative() { 0x8000 } else { 0 };
+    let (se, mantissa) = if v.is_nan() {
+        (0x7FFF, 0xC000_0000_0000_0000u64)
+    } else if v.is_infinite() {
+        (0x7FFF, 0x8000_0000_0000_0000)
+    } else if v == 0.0 {
+        (0, 0)
+    } else {
+        let (e, frac) = f64_parts(v);
+        ((e + 16383) as u16, (1u64 << 63) | (frac << 11))
+    };
+    let mut out = [0u8; 10];
+    out[..8].copy_from_slice(&mantissa.to_le_bytes());
+    out[8..].copy_from_slice(&(sign | se).to_le_bytes());
+    out
+}
+
+/// Exact conversion of an f64 to IEEE 754 binary128 (little-endian).
+fn f64_to_f128(v: f64) -> [u8; 16] {
+    let sign: u128 = if v.is_sign_negative() { 1 << 127 } else { 0 };
+    let body: u128 = if v.is_nan() {
+        (0x7FFFu128 << 112) | (1u128 << 111)
+    } else if v.is_infinite() {
+        0x7FFFu128 << 112
+    } else if v == 0.0 {
+        0
+    } else {
+        let (e, frac) = f64_parts(v);
+        (((e + 16383) as u128) << 112) | (u128::from(frac) << 60)
+    };
+    (sign | body).to_le_bytes()
+}
+
 /// x87 80-bit extended precision, little-endian bytes.
 fn f80_str(a: &[u8; 10]) -> String {
     let mantissa = u64::from_le_bytes(a[..8].try_into().expect("8 bytes"));
@@ -408,9 +458,19 @@ pub fn encode(ty: InspectType, text: &str, endian: Endian) -> Result<Vec<u8>> {
             let v: f64 = text.parse().map_err(|_| Error::invalid("not a number"))?;
             Ok(order(v.to_le_bytes().to_vec()))
         }
-        InspectType::F80 | InspectType::F128 => Err(Error::invalid(
-            "float80/float128 are shown with f64 precision and cannot be edited",
-        )),
+        InspectType::F80 | InspectType::F128 => {
+            let v: f64 = text
+                .replace('−', "-")
+                .replace('∞', "inf")
+                .parse()
+                .map_err(|_| Error::invalid("not a number"))?;
+            let bytes = if ty == InspectType::F80 {
+                f64_to_f80(v).to_vec()
+            } else {
+                f64_to_f128(v).to_vec()
+            };
+            Ok(order(bytes))
+        }
         InspectType::Ascii | InspectType::Utf8 | InspectType::Utf16 | InspectType::Utf32 => {
             let mut chars = text.chars();
             let c = chars.next().ok_or_else(|| Error::invalid("empty"))?;

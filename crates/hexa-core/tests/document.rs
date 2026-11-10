@@ -84,6 +84,39 @@ fn transactions_are_one_entry() {
 }
 
 #[test]
+fn revert_one_edit_from_the_middle() {
+    let mut doc = Document::from_bytes("t", b"0123456789".to_vec());
+    doc.set_mode(EditMode::Insert).unwrap();
+    doc.insert(2, b"AB").unwrap(); // #1: 01AB23456789
+    doc.overwrite(8, b"x").unwrap(); // #2: 01AB2345x789
+    doc.insert(0, b"<").unwrap(); // #3: <01AB2345x789
+    doc.revert_entry(1).unwrap();
+    assert_eq!(content(&doc), b"<012345x789");
+    // The revert is itself undoable.
+    doc.undo();
+    assert_eq!(content(&doc), b"<01AB2345x789");
+    doc.redo();
+    // Overwrite revert restores the old bytes.
+    doc.revert_entry(2).unwrap();
+    assert_eq!(content(&doc), b"<0123456789");
+}
+
+#[test]
+fn revert_refuses_conflicts_and_other_branches() {
+    let mut doc = Document::from_bytes("t", b"abcdef".to_vec());
+    doc.overwrite(1, b"XY").unwrap(); // #1
+    doc.overwrite(2, b"Z").unwrap(); // #2 touches #1's bytes
+    assert!(matches!(doc.revert_entry(1), Err(Error::Invalid(_))));
+    doc.undo();
+    doc.undo();
+    doc.overwrite(5, b"!").unwrap(); // #3 on a new branch
+    assert!(matches!(doc.revert_entry(2), Err(Error::Invalid(_))));
+    assert!(matches!(doc.revert_entry(0), Err(Error::Invalid(_))));
+    doc.revert_entry(3).unwrap();
+    assert_eq!(content(&doc), b"abcdef");
+}
+
+#[test]
 fn copy_paste_shares_pieces() {
     let mut doc = Document::from_bytes("t", (0..=255).collect());
     let clip = doc.copy(10, 20).unwrap();

@@ -713,11 +713,13 @@ export const COMMANDS: Command[] = [
   },
   {
     id: "view.offsetBase",
-    title: "Смещения: hex / dec / oct",
+    title: "Смещения: hex / dec / oct / сегмент:смещение",
     group: "Вид",
     run: () => {
       const o = settings().offsetBase;
-      s().set({ offsetBase: o === "hex" ? "dec" : o === "dec" ? "oct" : "hex" });
+      s().set({
+        offsetBase: o === "hex" ? "dec" : o === "dec" ? "oct" : o === "oct" ? "seg" : "hex",
+      });
     },
   },
   {

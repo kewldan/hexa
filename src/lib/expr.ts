@@ -10,6 +10,7 @@
 //   `s:N`         sector N (sector size from context, default 512)
 //   `p:N`         page N (4096 bytes)
 //   `r:N`         row N (bytes per row from context)
+//   `SSSS:OOOO`   segment:offset (segment size from context, default 64 KiB)
 
 export interface ExprContext {
   cursor: number;
@@ -18,6 +19,8 @@ export interface ExprContext {
   selEnd?: number;
   bytesPerRow?: number;
   sectorSize?: number;
+  /** Segment size for `SSSS:OOOO` input (default 64 KiB). */
+  segmentSize?: number;
   labels?: Record<string, number>;
 }
 
@@ -135,6 +138,14 @@ function evaluate(toks: Tok[], ctx: ExprContext): number {
 export function evalExpr(input: string, ctx: ExprContext): ExprResult {
   let s = input.trim();
   if (!s) throw new Error("Пусто");
+  const seg = /^([0-9a-f]{1,8}):([0-9a-f]{1,8})$/i.exec(s);
+  if (seg) {
+    const size = ctx.segmentSize ?? 0x10000;
+    return {
+      value: Number.parseInt(seg[1], 16) * size + Number.parseInt(seg[2], 16),
+      kind: "absolute",
+    };
+  }
   const pref = /^([spr]):\s*(.+)$/i.exec(s);
   if (pref) {
     const n = evaluate(tokenize(pref[2]), ctx);

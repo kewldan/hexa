@@ -369,6 +369,41 @@ impl Document {
         self.history.goto(id)
     }
 
+    /// Undoes one earlier edit while keeping everything done after it
+    /// (CORE-13). The bytes the edit inserted are tracked through later
+    /// edits; if a later edit touched them the revert is refused.
+    pub fn revert_entry(&mut self, id: usize) -> Result<Change> {
+        self.check_writable()?;
+        if self.tx.is_some() {
+            return Err(Error::invalid("revert inside a transaction"));
+        }
+        self.break_typing();
+        let (before, change) = self
+            .history
+            .entry_change(id)
+            .ok_or_else(|| Error::invalid("this history entry cannot be reverted"))?;
+        let later = self
+            .history
+            .changes_after(id)
+            .ok_or_else(|| Error::invalid("the entry is not on the current branch"))?;
+        let (a, b) = map_range(change.start, change.start + change.inserted, &later)
+            .ok_or_else(|| Error::invalid("later edits changed the same bytes"))?;
+        let restore = before.slice(change.start, change.start + change.removed);
+        if self.fixed_size && restore.len() != b - a {
+            return Err(Error::FixedSize);
+        }
+        let tree = self.tree().replace(a, b, &restore);
+        Ok(self.apply(
+            tree,
+            &format!("Revert #{id}"),
+            Change {
+                start: a,
+                removed: b - a,
+                inserted: restore.len(),
+            },
+        ))
+    }
+
     /// Ends coalescing so the next keystroke starts a new history entry.
     pub fn break_typing(&mut self) {
         self.typing = None;
@@ -848,6 +883,23 @@ fn lock(file: &std::fs::File, share: ShareMode) -> Result<()> {
         std::fs::TryLockError::WouldBlock => Error::invalid("file is locked by another process"),
         std::fs::TryLockError::Error(e) => Error::Io(e),
     })
+}
+
+/// Follows `[a, b)` through later changes; `None` when one overlaps it.
+pub(crate) fn map_range(mut a: u64, mut b: u64, later: &[Change]) -> Option<(u64, u64)> {
+    for c in later {
+        let c_end = c.start + c.removed;
+        if c_end <= a && !(c.removed == 0 && c.start == a && a < b) {
+            let delta = i128::from(c.inserted) - i128::from(c.removed);
+            a = (i128::from(a) + delta) as u64;
+            b = (i128::from(b) + delta) as u64;
+        } else if b <= c.start {
+            // Entirely after our range: nothing moves.
+        } else {
+            return None;
+        }
+    }
+    Some((a, b))
 }
 
 fn bytes_tree(data: &[u8]) -> Tree {
