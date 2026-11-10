@@ -17,4 +17,18 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+clap = { version = "4.6.7", features = ["derive", "wrap_help"] }
+clap_complete = "4.6"
+hexa-analysis = { path = "../hexa-analysis" }
 hexa-core = { path = "../hexa-core" }
+hexa-diff = { path = "../hexa-diff" }
+hexa-re = { path = "../hexa-re" }
+hexa-sys = { path = "../hexa-sys" }
+hexa-template = { path = "../hexa-template" }
+hexa-transform = { path = "../hexa-transform" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[dev-dependencies]
+serde_json = "1.0.154"
+tempfile = "3.27.0"
