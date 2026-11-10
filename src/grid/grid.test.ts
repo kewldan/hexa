@@ -96,3 +96,15 @@ describe("text decoding", () => {
     expect(encodeChar("Ж", enc("utf16Be"), null)).toEqual([0x04, 0x16]);
   });
 });
+
+describe(".tbl tables", () => {
+  it("decodes single and multi-byte entries with longest match", async () => {
+    const { parseTbl, TblDecoder } = await import("./tbl");
+    const t = parseTbl("# demo\n41=A\n42=B\n8140=あ\n/FF\n");
+    const d = new TblDecoder(t);
+    const data = [0x41, 0x81, 0x40, 0x42, 0x00];
+    const at = (o: number) => data[o];
+    expect(data.map((_, i) => d.glyph(at, i).ch)).toEqual(["A", "あ", "", "B", "·"]);
+    expect(t.entries.get("FF")).toBe("<end>");
+  });
+});

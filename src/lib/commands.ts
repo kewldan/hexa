@@ -27,7 +27,7 @@ function toggleSide(side: "left" | "right") {
   s().setLayout(side === "left" ? { leftOpen: !l.leftOpen } : { rightOpen: !l.rightOpen });
 }
 
-function showPanel(id: "history" | "hashes" | "results" | "inspector") {
+function showPanel(id: import("../state/settings").PanelId) {
   const l = settings().layout;
   if (l.left.includes(id)) s().setLayout({ leftOpen: true, leftActive: id });
   else s().setLayout({ rightOpen: true, rightActive: id });
@@ -348,13 +348,81 @@ export const COMMANDS: Command[] = [
     group: "Правка",
     doc: true,
     write: true,
-    run: () => {
-      const t = activeTab();
-      if (t) {
-        const r = selectionOrByte(t);
-        A.edit({ op: "fill", start: r.start, end: r.end, fill: { kind: "byte", value: 0 } });
-      }
-    },
+    run: () => A.fillRanges({ kind: "byte", value: 0 }),
+  },
+
+  // Marks (NAV-14…18)
+  {
+    id: "marks.add",
+    title: "Добавить закладку",
+    group: "Закладки",
+    doc: true,
+    run: () => A.addMark("bookmark"),
+  },
+  {
+    id: "marks.addLabel",
+    title: "Добавить метку (имя для «Перейти»)",
+    group: "Закладки",
+    doc: true,
+    run: () => A.addMark("label"),
+  },
+  {
+    id: "marks.addNote",
+    title: "Добавить заметку к выделению",
+    group: "Закладки",
+    doc: true,
+    run: () => A.addMark("annotation"),
+  },
+  {
+    id: "marks.next",
+    title: "Следующая закладка",
+    group: "Закладки",
+    doc: true,
+    run: () => A.nextMark(1),
+  },
+  {
+    id: "marks.prev",
+    title: "Предыдущая закладка",
+    group: "Закладки",
+    doc: true,
+    run: () => A.nextMark(-1),
+  },
+  {
+    id: "view.marks",
+    title: "Панель: закладки и заметки",
+    group: "Вид",
+    run: () => showPanel("marks"),
+  },
+  {
+    id: "view.layerChanges",
+    title: "Слой: изменения",
+    group: "Вид",
+    run: () => toggleLayer("changes"),
+  },
+  {
+    id: "view.layerSearch",
+    title: "Слой: результаты поиска",
+    group: "Вид",
+    run: () => toggleLayer("search"),
+  },
+  {
+    id: "view.layerMarks",
+    title: "Слой: закладки и заметки",
+    group: "Вид",
+    run: () => toggleLayer("marks"),
+  },
+  {
+    id: "view.layerStructure",
+    title: "Слой: поля структуры",
+    group: "Вид",
+    run: () => toggleLayer("structure"),
+  },
+  { id: "view.layerDiff", title: "Слой: отличия", group: "Вид", run: () => toggleLayer("diff") },
+  {
+    id: "view.hoverInspector",
+    title: "Подсказка со значениями при наведении",
+    group: "Вид",
+    run: () => s().set({ hoverInspector: !settings().hoverInspector }),
   },
 
   // Selection
@@ -779,6 +847,12 @@ export const COMMANDS: Command[] = [
   },
 ];
 
+function toggleLayer(k: keyof ReturnType<typeof settings>["layers"]) {
+  const l = settings().layers;
+  s().set({ layers: { ...l, [k]: !l[k] } });
+  toast(`Слой «${k}» ${l[k] ? "скрыт" : "показан"}`);
+}
+
 function cycleTab(dir: number) {
   import("../state/tabs").then(({ useTabs }) => {
     const st = useTabs.getState();
@@ -906,6 +980,10 @@ const BASE: Keymap = {
   "view.zoomOut": ["Mod+Minus"],
   "view.zoomReset": ["Mod+0"],
   "view.settings": ["Mod+,"],
+  "marks.add": ["Mod+D"],
+  "marks.addNote": ["Shift+Mod+D"],
+  "marks.next": ["F2"],
+  "marks.prev": ["Shift+F2"],
   "file.props": ["Alt+Mod+P"],
 };
 

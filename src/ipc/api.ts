@@ -109,7 +109,49 @@ export type Query =
       value: string;
       max: string | null;
       tolerance: number | null;
-    };
+    }
+  | { kind: "sequence"; items: SeqItem[] };
+
+export interface SeqItem {
+  ty: NumType;
+  bigEndian: boolean;
+  value: string | null;
+  max: string | null;
+  tolerance: number | null;
+}
+
+export type MarkKind = "bookmark" | "label" | "annotation";
+export interface Mark {
+  id: number;
+  kind: MarkKind;
+  start: number;
+  end: number;
+  name: string;
+  color: string;
+  note: string;
+  dataType: string | null;
+  orphaned: boolean;
+}
+
+export interface ExtRow {
+  key: string;
+  group: string;
+  label: string;
+  value: string | null;
+  size: number;
+  swatch: string | null;
+}
+
+export type Replacement =
+  | { kind: "bytes"; bytes: number[] }
+  | { kind: "template"; template: number[] };
+
+export interface Planned {
+  offset: number;
+  len: number;
+  old: number[];
+  new: number[];
+}
 
 export interface Scope {
   start: number;
@@ -363,6 +405,26 @@ export const api = {
   inspectorSet: (id: number, pos: number, ty: InspectType, text: string, endian: Endian) =>
     invoke<EditResult>("inspector_set", { id, pos, ty, text, endian }),
 
+  marksList: (id: number) => invoke<Mark[]>("marks_list", { id }),
+  marksAdd: (id: number, mark: Partial<Mark>) =>
+    invoke<number>("marks_add", { id, mark: { id: 0, ...mark } }),
+  marksUpdate: (id: number, mark: Mark) => invoke<boolean>("marks_update", { id, mark }),
+  marksRemove: (id: number, mark: number) => invoke<boolean>("marks_remove", { id, mark }),
+  marksSet: (id: number, marks: Partial<Mark>[]) => invoke<Mark[]>("marks_set", { id, marks }),
+  inspectExt: (id: number, pos: number, len: number | null, endian: Endian, q: [number, number]) =>
+    invoke<ExtRow[]>("inspect_ext", { id, pos, len, endian, qInt: q[0], qFrac: q[1] }),
+  replacePlan: (
+    id: number,
+    query: Query,
+    scope: Scope | null,
+    replacement: Replacement,
+    max?: number,
+  ) => invoke<Planned[]>("replace_plan", { id, query, scope, replacement, max: max ?? null }),
+  replaceApply: (id: number, plan: { offset: number; len: number; new: number[] }[]) =>
+    invoke<EditResult>("replace_apply", { id, plan }),
+  readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  writeTextFile: (path: string, content: string) =>
+    invoke<void>("write_text_file", { path, content }),
   cancelJob: (job: number) => invoke<void>("job_cancel", { job }),
   searchNext: (
     id: number,

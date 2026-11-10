@@ -181,6 +181,33 @@ export const Icon = {
       <path d="M5 13.5h7.5a1.7 1.7 0 0 0 1.7-1.7V6" />
     </I>
   ),
+  chart: () => (
+    <I>
+      <path d="M2.5 13.5h11M4.5 11V8M7.5 11V4.5M10.5 11V6.5M13 11V9" />
+    </I>
+  ),
+  code: () => (
+    <I>
+      <path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5M9 3l-2 10" />
+    </I>
+  ),
+  terminal: () => (
+    <I>
+      <rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2" />
+      <path d="M4.5 6.5L6.5 8l-2 1.5M8 10h3.5" />
+    </I>
+  ),
+  bookmark: () => (
+    <I>
+      <path d="M4.5 2.5h7v11L8 11l-3.5 2.5z" />
+    </I>
+  ),
+  split: () => (
+    <I>
+      <rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2" />
+      <path d="M8 2.8v10.4" />
+    </I>
+  ),
   stop: () => (
     <I>
       <rect x="4" y="4" width="8" height="8" rx="1.5" />

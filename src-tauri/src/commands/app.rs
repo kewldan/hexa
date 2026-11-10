@@ -106,3 +106,20 @@ pub fn recovery_restore(
 pub fn recovery_discard(state: State<'_, AppState>, key: String) {
     recovery::discard(&state, &key);
 }
+
+/// Reads a small text file chosen by the user (tables, bookmarks, templates).
+#[tauri::command]
+pub fn read_text_file(path: PathBuf) -> CmdResult<String> {
+    let meta = std::fs::metadata(&path)?;
+    if meta.len() > 16 << 20 {
+        return Err(CmdError::invalid("file is too large for a text import"));
+    }
+    Ok(std::fs::read_to_string(path)?)
+}
+
+/// Writes a text export chosen by the user.
+#[tauri::command]
+pub fn write_text_file(path: PathBuf, content: String) -> CmdResult<()> {
+    std::fs::write(path, content)?;
+    Ok(())
+}

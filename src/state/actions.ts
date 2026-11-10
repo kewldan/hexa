@@ -16,7 +16,7 @@ import {
   type Query,
   type Scope,
 } from "../ipc/api";
-import { fmtSize, hexN } from "../lib/format";
+import { fmtSize, hex2, hexN } from "../lib/format";
 import { settings, useSettings } from "./settings";
 import { activeTab, hasSelection, selection, selectionOrByte, type Tab, useTabs } from "./tabs";
 import { confirm, openDialog, toast, useUi } from "./ui";
@@ -106,6 +106,65 @@ export function applyResult(id: number, r: EditResult, cursor?: number, anchor?:
     scrollIntoView(id, cursor);
   }
   refreshHistory();
+  void refreshMarks(id);
+}
+
+// ---------------------------------------------------------------- marks (NAV-14…18)
+
+export async function refreshMarks(id: number) {
+  try {
+    const marks = await api.marksList(id);
+    patch(id, { marks });
+  } catch {
+    /* document closed */
+  }
+}
+
+export async function addMark(kind: "bookmark" | "label" | "annotation") {
+  const t = activeTab();
+  if (!t) return;
+  const sel = selectionOrByte(t);
+  const n = t.marks.filter((m) => m.kind === kind).length + 1;
+  const name =
+    kind === "label" ? `label${n}` : kind === "annotation" ? `Заметка ${n}` : `Закладка ${n}`;
+  const colors = ["blue", "orange", "green", "pink", "purple", "yellow"];
+  try {
+    const id = await api.marksAdd(t.id, {
+      kind,
+      start: sel.start,
+      end: Math.max(sel.end, sel.start + (kind === "label" ? 0 : 1)),
+      name,
+      color: colors[(t.marks.length + 1) % colors.length],
+      note: "",
+      dataType: null,
+      orphaned: false,
+    });
+    await refreshMarks(t.id);
+    const m = activeTab()?.marks.find((x) => x.id === id);
+    if (m && kind !== "bookmark") openDialog({ kind: "mark", mark: m });
+    else toast(`${name} добавлена`);
+  } catch (e) {
+    report(e);
+  }
+}
+
+/** NAV-05: next/previous bookmark from the cursor. */
+export function nextMark(dir: 1 | -1) {
+  const t = activeTab();
+  if (!t || !t.marks.length) return toast("Закладок нет");
+  const sorted = [...t.marks].sort((a, b) => a.start - b.start);
+  const m =
+    dir > 0
+      ? (sorted.find((x) => x.start > t.cursor) ?? sorted[0])
+      : ([...sorted].reverse().find((x) => x.start < t.cursor) ?? sorted[sorted.length - 1]);
+  jumpTo(m.start, Math.max(1, m.end - m.start));
+}
+
+/** Labels for goto expressions (NAV-16). */
+export function labelsOf(t: Tab): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const m of t.marks) if (m.name && /^[A-Za-z_$][\w.$]*$/.test(m.name)) out[m.name] = m.start;
+  return out;
 }
 
 let historyListeners = new Set<() => void>();
@@ -219,6 +278,7 @@ export function moveEnd(extend: boolean, file = false) {
 
 /** Nibble movement (NAV-07). */
 export function moveNibble(dir: 1 | -1) {
+  if (settings().cellView === "bin" && settings().cellWidth === 1) return moveBit(dir);
   const t = activeTab();
   if (t?.column !== "hex") return moveBy(dir, false);
   if (dir > 0) {
@@ -760,9 +820,31 @@ export async function deleteBytes(backward: boolean) {
 
 // ---------------------------------------------------------------- clipboard (EDIT-03…17)
 
+/** All selected ranges (main + extra), sorted, half-open (NAV-10/11). */
+export function allRanges(t: Tab): { start: number; end: number }[] {
+  const main = selection(t);
+  const list = [...t.extra];
+  if (main.end > main.start) list.push(main);
+  return list.sort((a, b) => a.start - b.start);
+}
+
 export async function copy(format?: CopyFormat, cut = false) {
   const t = activeTab();
   if (!t || t.info.len === 0) return;
+  if (t.extra.length && !cut) {
+    // Multi or rectangular selection: one hex line per range.
+    const ranges = allRanges(t);
+    const total = ranges.reduce((n, r) => n + r.end - r.start, 0);
+    if (total > 16 << 20) return toast("Слишком большое составное выделение", true);
+    const lines = await Promise.all(
+      ranges.map(async (r) =>
+        Array.from(await api.read(t.id, r.start, r.end - r.start), (b) => hex2(b)).join(" "),
+      ),
+    );
+    await writeText(lines.join("\n"));
+    toast(`Скопировано ${ranges.length} диапазонов, ${fmtSize(total)}`);
+    return;
+  }
   const { start, end } = selectionOrByte(t);
   try {
     const r = await api.clipCopy(t.id, start, end, format);
@@ -848,6 +930,55 @@ export async function pasteBytes(bytes: number[], overwrite: boolean) {
 }
 
 // ---------------------------------------------------------------- transforms (EDIT-05…09)
+
+/** Fills every selected range (multi/rect aware). */
+export async function fillRanges(fill: import("../ipc/api").Fill) {
+  const t = activeTab();
+  if (!t) return;
+  const ranges = t.extra.length ? allRanges(t) : [selectionOrByte(t)];
+  try {
+    let last: EditResult | undefined;
+    for (const r of ranges)
+      last = await api.edit(t.id, { op: "fill", start: r.start, end: r.end, fill });
+    if (last) applyResult(t.id, last);
+  } catch (e) {
+    report(e);
+  }
+}
+
+/** DISP-08: bit mode — type 0/1 into the bit under the cursor (binary view). */
+export function typeBit(v: 0 | 1) {
+  const t = activeTab();
+  if (!t) return;
+  const c = cacheFor(t.id);
+  const old = c.byte(t.cursor);
+  if (old === undefined) return;
+  const mask = 0x80 >> t.bit;
+  const byte = v ? old | mask : old & ~mask;
+  queue(async () => {
+    try {
+      const r = await api.edit(t.id, { op: "overwrite", pos: t.cursor, bytes: [byte] });
+      applyResult(t.id, r);
+      moveBit(1);
+    } catch (e) {
+      report(e);
+    }
+  });
+}
+
+export function moveBit(dir: 1 | -1) {
+  const t = activeTab();
+  if (!t) return;
+  const b = t.bit + dir;
+  if (b >= 0 && b < 8) patch(t.id, { bit: b, anchor: t.cursor });
+  else if (b >= 8) {
+    setCursor(t.cursor + 1);
+    patch(t.id, { bit: 0 });
+  } else if (t.cursor > 0) {
+    setCursor(t.cursor - 1);
+    patch(t.id, { bit: 7 });
+  }
+}
 
 export async function edit(op: Parameters<typeof api.edit>[1], cursor?: number) {
   const t = activeTab();

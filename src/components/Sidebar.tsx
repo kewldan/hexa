@@ -3,16 +3,59 @@ import { useState } from "react";
 import { startPointerDrag } from "../lib/pointerDrag";
 import { type PanelId, useSettings } from "../state/settings";
 import type { Tab } from "../state/tabs";
+import { Icon } from "./icons";
+import { AnalysisPanel } from "./panels/AnalysisPanel";
+import { ConsolePanel } from "./panels/ConsolePanel";
+import { DisasmPanel } from "./panels/DisasmPanel";
 import { HashPanel } from "./panels/HashPanel";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { InspectorPanel } from "./panels/InspectorPanel";
+import { MarksPanel } from "./panels/MarksPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
+import { StringsPanel } from "./panels/StringsPanel";
+import { StructurePanel } from "./panels/StructurePanel";
+import { TransformPanel } from "./panels/TransformPanel";
 
-const TITLES: Record<PanelId, string> = {
+export const TITLES: Record<PanelId, string> = {
   history: "История",
   hashes: "Хэши",
   results: "Поиск",
   inspector: "Инспектор",
+  marks: "Закладки",
+  structure: "Структура",
+  analysis: "Анализ",
+  transform: "Преобразования",
+  disasm: "Код",
+  strings: "Строки",
+  console: "Консоль",
+};
+
+const ICONS: Record<PanelId, () => React.ReactElement> = {
+  history: Icon.clock,
+  hashes: Icon.hash,
+  results: Icon.search,
+  inspector: Icon.sidebarR,
+  marks: Icon.star,
+  structure: Icon.layers,
+  analysis: Icon.chart,
+  transform: Icon.refresh,
+  disasm: Icon.code,
+  strings: Icon.list,
+  console: Icon.terminal,
+};
+
+const PANELS: Record<PanelId, (p: { tab: Tab }) => React.ReactElement | null> = {
+  history: HistoryPanel,
+  hashes: HashPanel,
+  results: ResultsPanel,
+  inspector: InspectorPanel,
+  marks: MarksPanel,
+  structure: StructurePanel,
+  analysis: AnalysisPanel,
+  transform: TransformPanel,
+  disasm: DisasmPanel,
+  strings: StringsPanel,
+  console: ConsolePanel,
 };
 
 /** Moves a panel to a side and shows it there (UI-01). */
@@ -103,7 +146,13 @@ export function Sidebar({ side, tab }: { side: "left" | "right"; tab: Tab }) {
               }
               onClick={() => setActive(id)}
             >
-              {TITLES[id]}
+              {panels.length > 3 ? (
+                <span className="side-ico" title={TITLES[id]}>
+                  {ICONS[id]()}
+                </span>
+              ) : (
+                TITLES[id]
+              )}
               {id === "results" && tab.results && tab.results.matches.length > 0 && (
                 <span className="cnt">
                   {tab.results.matches.length > 999 ? "999+" : tab.results.matches.length}
@@ -113,10 +162,12 @@ export function Sidebar({ side, tab }: { side: "left" | "right"; tab: Tab }) {
           ))}
         </div>
         <div className="panel-body" key={active ?? "none"}>
-          {active === "inspector" && <InspectorPanel tab={tab} />}
-          {active === "history" && <HistoryPanel tab={tab} />}
-          {active === "hashes" && <HashPanel tab={tab} />}
-          {active === "results" && <ResultsPanel tab={tab} />}
+          {active && panels.length > 3 && <div className="panel-title">{TITLES[active]}</div>}
+          {active &&
+            (() => {
+              const P = PANELS[active];
+              return <P tab={tab} />;
+            })()}
         </div>
       </div>
       <div className={`splitter${resizing ? " on" : ""}`} onMouseDown={startResize} />

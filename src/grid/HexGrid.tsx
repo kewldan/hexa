@@ -8,17 +8,21 @@ import {
   useRef,
   useState,
 } from "react";
+import { markColor } from "../components/panels/MarksPanel";
 import { keysFor } from "../lib/commands";
 import { hexN, offsetWidth } from "../lib/format";
-import { displayKeys } from "../lib/keys";
+import { displayKeys, isMac } from "../lib/keys";
+import { renderMarkdown } from "../lib/markdown";
 import * as A from "../state/actions";
+import { useOverlays } from "../state/overlays";
 import { fontSize, rowHeight, useSettings } from "../state/settings";
 import { hasSelection, selection, type Tab, useTabs } from "../state/tabs";
 import { type MenuItem, openDialog, useUi } from "../state/ui";
 import { cacheFor } from "./cache";
 import { computeLayout, type GridLayout, hitHexCell, hitTextByte } from "./layout";
 import { Minimap } from "./Minimap";
-import { cursorLabel, HexAtlas, type Palette, readPalette, renderGrid } from "./render";
+import { cursorLabel, HexAtlas, type Palette, readPalette, renderGrid, withAlpha } from "./render";
+import { parseTbl, TblDecoder } from "./tbl";
 import { TextDecoder2 } from "./text";
 
 function measureChar(font: string): number {
@@ -99,18 +103,23 @@ export function HexGrid({ tab }: { tab: Tab }) {
     );
   }, [palette, font, cw, rowH, s.lowercase]);
 
-  const [decoder, setDecoder] = useState(
+  const [decoder, setDecoder] = useState<TextDecoder2 | TblDecoder>(
     () => new TextDecoder2(A.encodingInfo(s.encoding), A.cachedTable(s.encoding), s.nonPrintable),
   );
   useEffect(() => {
     let alive = true;
+    if (s.encoding.startsWith("tbl:")) {
+      const src = s.tblTables[s.encoding.slice(4)];
+      if (src !== undefined) setDecoder(new TblDecoder(parseTbl(src)));
+      return;
+    }
     A.encodingTable(s.encoding).then((t) => {
       if (alive) setDecoder(new TextDecoder2(A.encodingInfo(s.encoding), t, s.nonPrintable));
     });
     return () => {
       alive = false;
     };
-  }, [s.encoding, s.nonPrintable]);
+  }, [s.encoding, s.nonPrintable, s.tblTables]);
 
   useEffect(() => cache.subscribe(() => setTick((x) => x + 1)), [cache]);
   useEffect(() => {
@@ -139,6 +148,27 @@ export function HexGrid({ tab }: { tab: Tab }) {
       A.scrollIntoView(tab.id, tab.cursor, true);
     }
   }, [layout.bpr, tab.id, tab.cursor]);
+
+  // Highlight layers (DISP-16): marks plus regions contributed by panels.
+  const overlayLayers = useOverlays((o) => o.layers[tab.id]);
+  const { regions, pins } = useMemo(() => {
+    const regions: { start: number; end: number; color: string }[] = [];
+    const pins: { offset: number; color: string; annotation: boolean }[] = [];
+    if (s.layers.marks) {
+      for (const m of tab.marks) {
+        const c = markColor(m.color);
+        if (m.kind !== "label" && m.end > m.start)
+          regions.push({ start: m.start, end: m.end, color: withAlpha(c, 0.2) });
+        pins.push({ offset: m.start, color: c, annotation: m.kind === "annotation" });
+      }
+    }
+    for (const [name, list] of Object.entries(overlayLayers ?? {})) {
+      const key = name as keyof typeof s.layers;
+      if (key in s.layers && !s.layers[key]) continue;
+      regions.push(...list);
+    }
+    return { regions, pins };
+  }, [tab.marks, overlayLayers, s.layers]);
 
   // Draw.
   useEffect(() => {
@@ -174,9 +204,13 @@ export function HexGrid({ tab }: { tab: Tab }) {
       anchor: tab.anchor,
       column: tab.column,
       hover,
-      matches: r?.matches ?? [],
+      matches: s.layers.search ? (r?.matches ?? []) : [],
       currentMatch: r?.current ?? -1,
       readOnly: tab.info.mode === "readOnly",
+      regions,
+      pins,
+      extraSel: tab.extra,
+      bit: tab.bit,
     });
   });
 
@@ -297,18 +331,52 @@ export function HexGrid({ tab }: { tab: Tab }) {
       A.selectRange(start, Math.min(start + g, tab.info.len));
       return;
     }
-    update(tab.id, (t) => ({
-      cursor: h.offset,
-      anchor: e.shiftKey ? t.anchor : h.offset,
-      column: h.column,
-      nibble: 0,
-    }));
+    const additive = isMac ? e.metaKey : e.ctrlKey;
+    const rect = e.altKey;
+    update(tab.id, (t) => {
+      // NAV-10: ⌘/Ctrl-click keeps the current selection as an extra range.
+      const keep =
+        additive && t.anchor !== t.cursor
+          ? [
+              ...t.extra,
+              { start: Math.min(t.anchor, t.cursor), end: Math.max(t.anchor, t.cursor) + 1 },
+            ]
+          : additive
+            ? t.extra
+            : [];
+      return {
+        cursor: h.offset,
+        anchor: e.shiftKey ? t.anchor : h.offset,
+        column: h.column,
+        nibble: 0,
+        bit: 0,
+        extra: rect ? [] : keep,
+      };
+    });
     dragging.current = true;
     let lastY = e.clientY;
     let auto: ReturnType<typeof setInterval> | undefined;
+    const bpr = layout.bpr;
+    const r0 = Math.floor(h.offset / bpr);
+    const c0 = h.offset % bpr;
     const move = (ev: MouseEvent) => {
       lastY = ev.clientY;
       const p = hit(ev);
+      if (rect) {
+        // NAV-11: rectangular (column) selection, one range per row.
+        const r1 = Math.floor(p.offset / bpr);
+        const c1 = p.offset % bpr;
+        const [ra, rb] = r0 <= r1 ? [r0, r1] : [r1, r0];
+        const [ca, cb] = c0 <= c1 ? [c0, c1] : [c1, c0];
+        const extra: { start: number; end: number }[] = [];
+        for (let r = ra; r <= rb && extra.length < 100_000; r++) {
+          const start = r * bpr + ca;
+          if (start >= tab.info.len) break;
+          extra.push({ start, end: Math.min(r * bpr + cb + 1, tab.info.len) });
+        }
+        update(tab.id, { cursor: p.offset, anchor: p.offset, extra, nibble: 0 });
+        return;
+      }
       update(tab.id, { cursor: p.offset, nibble: 0 });
     };
     auto = setInterval(() => {
@@ -329,11 +397,77 @@ export function HexGrid({ tab }: { tab: Tab }) {
     window.addEventListener("mouseup", up);
   };
 
+  const [tip, setTip] = useState<{ x: number; y: number; offset: number } | null>(null);
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onMouseMove = (e: ReactMouseEvent) => {
     if (dragging.current) return;
     const h = hit(e);
-    if (h.offset !== hover) setHover(h.offset < tab.info.len ? h.offset : -1);
+    if (h.offset !== hover) {
+      setHover(h.offset < tab.info.len ? h.offset : -1);
+      setTip(null);
+      clearTimeout(tipTimer.current);
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (r && h.offset < tab.info.len) {
+        const pos = { x: e.clientX - r.left + 14, y: e.clientY - r.top + 16, offset: h.offset };
+        tipTimer.current = setTimeout(() => setTip(pos), 450);
+      }
+    }
   };
+  useEffect(() => () => clearTimeout(tipTimer.current), []);
+  const tipContent = (() => {
+    if (!tip) return null;
+    const notes = tab.marks.filter(
+      (m) =>
+        m.kind === "annotation" &&
+        tip.offset >= m.start &&
+        tip.offset < Math.max(m.end, m.start + 1),
+    );
+    const labels = Object.values(overlayLayers ?? {})
+      .flat()
+      .filter((r) => r.label && tip.offset >= r.start && tip.offset < r.end)
+      .map((r) => r.label as string);
+    const values: string[] = [];
+    if (s.hoverInspector) {
+      const b = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => cache.byte(tip.offset + i));
+      if (b.slice(0, 4).every((x) => x !== undefined)) {
+        const dv = new DataView(Uint8Array.from(b.map((x) => x ?? 0)).buffer);
+        const le = s.inspectorEndian === "little";
+        values.push(
+          `u8 ${b[0]} · i8 ${dv.getInt8(0)}`,
+          `u16 ${dv.getUint16(0, le)} · i16 ${dv.getInt16(0, le)}`,
+          `u32 ${dv.getUint32(0, le)} · i32 ${dv.getInt32(0, le)}`,
+          `f32 ${dv.getFloat32(0, le).toPrecision(7)}`,
+        );
+      }
+    }
+    if (!notes.length && !labels.length && !values.length) return null;
+    return (
+      <div className="note-tip" style={{ left: tip.x, top: tip.y }}>
+        {notes.map((n) => (
+          <div key={n.id}>
+            <b>{n.name}</b>
+            {/* biome-ignore lint/security/noDangerouslySetInnerHtml: escaped Markdown */}
+            <div
+              className="md"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(n.note || "—") }}
+            />
+          </div>
+        ))}
+        {labels.map((l) => (
+          <div key={l} className="mono" style={{ fontSize: 12 }}>
+            {l}
+          </div>
+        ))}
+        {values.length > 0 && (
+          <div className="mono mut" style={{ fontSize: 11.5 }}>
+            {values.map((v) => (
+              <div key={v}>{v}</div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  })();
 
   // Native wheel listener so preventDefault works (passive: false).
   useEffect(() => {
@@ -427,7 +561,11 @@ export function HexGrid({ tab }: { tab: Tab }) {
           aria-readonly={tab.info.mode === "readOnly"}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
-          onMouseLeave={() => setHover(-1)}
+          onMouseLeave={() => {
+            setHover(-1);
+            setTip(null);
+            clearTimeout(tipTimer.current);
+          }}
           onContextMenu={onContextMenu}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -466,6 +604,12 @@ export function HexGrid({ tab }: { tab: Tab }) {
                   {tab.column === "hex" ? label : textChar}
                   {focused &&
                     tab.column === "hex" &&
+                    s.cellView === "bin" &&
+                    layout.cellBytes === 1 && (
+                      <span className="bitmark" style={{ left: (0.275 + tab.bit) * cw }} />
+                    )}
+                  {focused &&
+                    tab.column === "hex" &&
                     !buffer &&
                     layout.cellBytes === 1 &&
                     s.cellView === "hex" && <span className={`nib${tab.nibble ? " n1" : ""}`} />}
@@ -483,6 +627,7 @@ export function HexGrid({ tab }: { tab: Tab }) {
               </span>
             </div>
           )}
+          {tipContent}
           <div className="vh" aria-live="polite">
             {announce}
           </div>

@@ -7,7 +7,18 @@ export type Density = "compact" | "regular" | "comfortable";
 export type CellView = "hex" | "dec" | "oct" | "bin" | "signed" | "hexii" | "float" | "char";
 export type Column = "offset" | "hex" | "text";
 export type NonPrintable = "dot" | "pictures" | "blank";
-export type PanelId = "history" | "hashes" | "results" | "inspector";
+export type PanelId =
+  | "history"
+  | "hashes"
+  | "results"
+  | "inspector"
+  | "marks"
+  | "structure"
+  | "analysis"
+  | "transform"
+  | "disasm"
+  | "strings"
+  | "console";
 export type KeymapPreset = "hexa" | "hxd" | "010" | "vim" | "emacs";
 
 export interface Layout {
@@ -67,16 +78,43 @@ export interface Settings {
   searchEncodings: string[];
   confirmClose: boolean;
   zoom: number;
+  /** Interface scale for everything but the grid (UI-18). */
+  uiScale: number;
+  /** Hidden inspector rows by key (INSP-17). */
+  inspectorHidden: string[];
+  /** Integer and fraction bits for the Q-format row (INSP-04). */
+  qFormat: [number, number];
+  /** Inspector tooltip when hovering a byte (INSP-18). */
+  hoverInspector: boolean;
+  /** User colour maps by byte value (DISP-14). */
+  colorRules: { from: number; to: number; color: string }[];
+  /** Visibility of highlight layers (DISP-16). */
+  layers: { changes: boolean; search: boolean; marks: boolean; structure: boolean; diff: boolean };
+  /** Loaded .tbl character tables by name (DISP-12). */
+  tblTables: Record<string, string>;
+  savedQueries: { label: string; kind: string; text: string }[];
+  queryHistory: string[];
+  /** Named settings snapshots (UI-11). */
+  profiles: Record<string, Partial<Settings>>;
+  /** Opt-in update check (UI-15, NFR-11). */
+  checkUpdates: boolean;
+  /** Announce cursor moves and values for screen readers (UI-17). */
+  screenReader: boolean;
+  locale: "ru" | "en";
+  /** Structure template auto-apply by signature (STRC-09). */
+  autoTemplate: boolean;
+  /** Local HTTP API for external tools (SCR-09). */
+  apiEnabled: boolean;
 }
 
 export const DEFAULT_LAYOUT: Layout = {
-  left: ["history", "hashes", "results"],
-  right: ["inspector"],
+  left: ["structure", "marks", "history", "hashes", "results"],
+  right: ["inspector", "analysis", "transform", "disasm", "strings", "console"],
   leftOpen: true,
   rightOpen: true,
   leftWidth: 272,
   rightWidth: 292,
-  leftActive: "history",
+  leftActive: "structure",
   rightActive: "inspector",
 };
 
@@ -123,6 +161,21 @@ export const DEFAULTS: Settings = {
   searchEncodings: ["ascii"],
   confirmClose: true,
   zoom: 1,
+  uiScale: 1,
+  inspectorHidden: [],
+  qFormat: [16, 16],
+  hoverInspector: false,
+  colorRules: [],
+  layers: { changes: true, search: true, marks: true, structure: true, diff: true },
+  tblTables: {},
+  savedQueries: [],
+  queryHistory: [],
+  profiles: {},
+  checkUpdates: false,
+  screenReader: true,
+  locale: "ru",
+  autoTemplate: true,
+  apiEnabled: false,
 };
 
 interface SettingsStore {
@@ -152,7 +205,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
         ...DEFAULTS,
         ...raw,
         save: { ...DEFAULTS.save, ...(raw.save ?? {}) },
-        layout: { ...DEFAULT_LAYOUT, ...(raw.layout ?? {}) },
+        layout: migrateLayout({ ...DEFAULT_LAYOUT, ...(raw.layout ?? {}) }),
       };
       set({ s, loaded: true });
     } catch {
@@ -174,6 +227,16 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     persist(DEFAULTS);
   },
 }));
+
+/** Adds panels introduced after the layout was saved to their default side. */
+function migrateLayout(l: Layout): Layout {
+  const all = new Set([...l.left, ...l.right]);
+  const left = [...l.left];
+  const right = [...l.right];
+  for (const id of DEFAULT_LAYOUT.left) if (!all.has(id)) left.push(id);
+  for (const id of DEFAULT_LAYOUT.right) if (!all.has(id)) right.push(id);
+  return { ...l, left, right };
+}
 
 export const settings = () => useSettings.getState().s;
 

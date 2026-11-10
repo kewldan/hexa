@@ -229,6 +229,7 @@ export function GotoDialog() {
         selEnd: sel.end,
         bytesPerRow: A.viewport.bpr,
         segmentSize: s.offsetSegment,
+        labels: A.labelsOf(tab),
       });
       const v = r.value - (r.kind === "absolute" ? s.baseAddress : 0);
       preview =

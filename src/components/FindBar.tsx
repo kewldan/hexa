@@ -1,19 +1,20 @@
 // Find bar (SRCH-01…05, 13…17): incremental, background, cancellable.
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { NumType, Query } from "../ipc/api";
-import { groupDec } from "../lib/format";
+import { api, type NumType, type Query, type Replacement, type SeqItem } from "../ipc/api";
+import { groupDec, parseHexBytes } from "../lib/format";
 import * as A from "../state/actions";
 import { useSettings } from "../state/settings";
 import { selection, type Tab, useTabs } from "../state/tabs";
-import { useUi } from "../state/ui";
+import { openDialog, toast, useUi } from "../state/ui";
 import { Icon } from "./icons";
 
-type Kind = "hex" | "text" | "regex" | "number";
+type Kind = "hex" | "text" | "regex" | "number" | "seq";
 const KINDS: { id: Kind; label: string }[] = [
   { id: "hex", label: "Hex" },
   { id: "text", label: "Текст" },
   { id: "regex", label: "Regex" },
   { id: "number", label: "Число" },
+  { id: "seq", label: "Посл." },
 ];
 const NUMS: NumType[] = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"];
 const TEXT_ENCODINGS = [
@@ -40,6 +41,73 @@ export function FindBar({ tab }: { tab: Tab }) {
   const [endian, setEndian] = useState<"little" | "big" | "both">("little");
   const [tolerance, setTolerance] = useState("");
   const [error, setError] = useState("");
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [repl, setRepl] = useState("");
+
+  const replacementBytes = async (): Promise<Replacement | null> => {
+    if (kind === "regex") {
+      const bytes: number[] = [];
+      const src = repl.replace(/\\x([0-9a-f]{2})/gi, (_, h) =>
+        String.fromCharCode(Number.parseInt(h, 16)),
+      );
+      for (const ch of src) {
+        const c = ch.codePointAt(0) ?? 0;
+        if (c < 0x100) bytes.push(c);
+        else bytes.push(...new TextEncoder().encode(ch));
+      }
+      return { kind: "template", template: bytes };
+    }
+    if (kind === "text") {
+      const enc = encs[0] ?? "ascii";
+      return { kind: "bytes", bytes: await api.encodeText(repl, enc) };
+    }
+    const b = repl.trim() === "" ? [] : parseHexBytes(repl);
+    if (!b) {
+      toast("Замена: ожидаются hex-байты", true);
+      return null;
+    }
+    return { kind: "bytes", bytes: b };
+  };
+  const scopeNow = () =>
+    inSel || align > 1
+      ? { start: inSel?.start ?? 0, end: inSel?.end ?? tab.info.len, align }
+      : null;
+  const replaceOne = async () => {
+    if (!query) return;
+    const r = await replacementBytes();
+    if (!r) return;
+    try {
+      const sel = selection(tab);
+      const plan = await api.replacePlan(
+        tab.id,
+        query,
+        { start: sel.start, end: Math.max(sel.end, sel.start), align: 1 },
+        r,
+        1,
+      );
+      if (!plan.length || plan[0].offset !== sel.start) {
+        A.stepResult(1);
+        return;
+      }
+      const res = await api.replaceApply(tab.id, plan);
+      A.applyResult(tab.id, res, plan[0].offset + plan[0].new.length);
+      A.stepResult(1);
+    } catch (e) {
+      A.report(e);
+    }
+  };
+  const replaceAll = async () => {
+    if (!query) return;
+    const r = await replacementBytes();
+    if (!r) return;
+    try {
+      const plan = await api.replacePlan(tab.id, query, scopeNow(), r, 100_000);
+      if (!plan.length) return toast("Нечего заменять", true);
+      openDialog({ kind: "replacePreview", plan });
+    } catch (e) {
+      A.report(e);
+    }
+  };
   // SRCH-13/14: limit to the selection captured when the toggle was switched on.
   const [inSel, setInSel] = useState<{ start: number; end: number } | null>(null);
   const [align, setAlign] = useState(1);
@@ -62,6 +130,8 @@ export function FindBar({ tab }: { tab: Tab }) {
         return { kind: "text", text: q, encodings: encs.length ? encs : ["ascii"], caseSensitive };
       case "regex":
         return { kind: "regex", pattern: q, unicode };
+      case "seq":
+        return parseSequence(text);
       case "number": {
         const [lo, hi] = text.split(/\s*(?:\.\.|…)\s*/);
         return {
@@ -124,9 +194,14 @@ export function FindBar({ tab }: { tab: Tab }) {
         ? "нет совпадений"
         : `${r.current >= 0 ? `${groupDec(r.current + 1)} из ` : ""}${groupDec(r.matches.length)}${r.truncated ? "+" : ""}${r.running ? "…" : ""}`;
 
+  const remember = () => {
+    const h = settings.queryHistory.filter((x) => x !== q);
+    setSettings({ queryHistory: [q, ...h].slice(0, 30) });
+  };
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      if (q.trim()) remember();
       A.stepResult(e.shiftKey ? -1 : 1);
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -142,7 +217,9 @@ export function FindBar({ tab }: { tab: Tab }) {
         ? "Текст"
         : kind === "regex"
           ? "Регулярное выражение по байтам"
-          : "Значение или диапазон 10..20";
+          : kind === "seq"
+            ? "u32le=0x10, u16le=1..5, u8=*"
+            : "Значение или диапазон 10..20";
 
   const idx = KINDS.findIndex((k) => k.id === kind);
   return (
@@ -174,6 +251,7 @@ export function FindBar({ tab }: { tab: Tab }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKey}
+          list="hx-query-history"
           placeholder={placeholder}
           spellCheck={false}
           autoComplete="off"
@@ -306,12 +384,117 @@ export function FindBar({ tab }: { tab: Tab }) {
         )}
       </div>
       <div className="grow" />
+      <button
+        type="button"
+        className={`tog${replaceOpen ? " on" : ""}`}
+        title="Замена (SRCH-20)"
+        onClick={() => setReplaceOpen(!replaceOpen)}
+      >
+        Замена
+      </button>
+      <button
+        type="button"
+        className="tog"
+        title="Сохранить запрос"
+        disabled={!q.trim()}
+        onClick={() => {
+          setSettings({
+            savedQueries: [
+              ...settings.savedQueries.filter((x) => x.text !== q),
+              { label: q, kind, text: q },
+            ],
+          });
+          toast("Запрос сохранён");
+        }}
+      >
+        ★
+      </button>
+      {settings.savedQueries.length > 0 && (
+        <select
+          className="sel-input"
+          value=""
+          aria-label="Сохранённые запросы"
+          onChange={(e) => {
+            const sq = settings.savedQueries[Number(e.target.value)];
+            if (sq) {
+              setKind(sq.kind as Kind);
+              setQ(sq.text);
+            }
+          }}
+        >
+          <option value="">Сохранённые…</option>
+          {settings.savedQueries.map((x, i) => (
+            <option key={`${x.kind}-${x.text}`} value={i}>
+              {x.kind}: {x.label}
+            </option>
+          ))}
+        </select>
+      )}
       <span className="fhint">↵ далее · ⇧↵ назад · esc закрыть</span>
       <button type="button" className="ib" aria-label="Закрыть поиск" onClick={close}>
         <Icon.close />
       </button>
+      <datalist id="hx-query-history">
+        {settings.queryHistory.map((h) => (
+          <option key={h} value={h} />
+        ))}
+      </datalist>
+      {replaceOpen && (
+        <div className="find-replace">
+          <label className="fld">
+            <span className="vh">Заменить на</span>
+            <input
+              value={repl}
+              onChange={(e) => setRepl(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") replaceOne();
+              }}
+              placeholder={
+                kind === "regex"
+                  ? "Шаблон: $1 — группа, \\xNN — байт"
+                  : kind === "text"
+                    ? "Текст замены"
+                    : "Hex-байты замены"
+              }
+              spellCheck={false}
+            />
+          </label>
+          <button type="button" className="btn" onClick={replaceOne} disabled={!query}>
+            Заменить
+          </button>
+          <button type="button" className="btn pri" onClick={replaceAll} disabled={!query}>
+            Заменить всё…
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+/** "u32le=0x10, u16be=1..5, u8=*" → sequence query (SRCH-06). */
+export function parseSequence(text: string): Query | null {
+  const items: SeqItem[] = [];
+  for (const part of text
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)) {
+    const m = /^([iuf])(8|16|32|64)(le|be)?\s*(?:=\s*(.+))?$/i.exec(part);
+    if (!m) return null;
+    const ty = `${m[1].toLowerCase()}${m[2]}` as NumType;
+    if (!["i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64"].includes(ty))
+      return null;
+    const v = (m[4] ?? "*").trim();
+    const [lo, hi] = v.split(/\s*(?:\.\.|…)\s*/);
+    items.push({
+      ty,
+      bigEndian: (m[3] ?? "le").toLowerCase() === "be",
+      value: lo === "*" ? null : lo,
+      max: hi ?? null,
+      tolerance: null,
+    });
+  }
+  return items.length ? { kind: "sequence", items } : null;
 }
 
 export function useResultsOf(id: number) {

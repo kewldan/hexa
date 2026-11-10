@@ -16,6 +16,8 @@ const SECTIONS = [
   ["files", "Файлы"],
   ["theme", "Тема"],
   ["keys", "Клавиши"],
+  ["access", "Доступность"],
+  ["profiles", "Профили и JSON"],
 ] as const;
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -164,6 +166,92 @@ function KeysSection() {
   );
 }
 
+function ProfilesSection() {
+  const s = useSettings((st) => st.s);
+  const set = useSettings((st) => st.set);
+  const [name, setName] = useState("");
+  const [json, setJson] = useState(() => JSON.stringify(s, null, 2));
+  const [err, setErr] = useState("");
+  return (
+    <>
+      <div className="pgh">Профили</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <input
+          className="inp"
+          placeholder="Имя профиля"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button
+          type="button"
+          className="btn"
+          disabled={!name.trim()}
+          onClick={() => {
+            const { profiles: _, ...rest } = s;
+            set({ profiles: { ...s.profiles, [name.trim()]: rest } });
+            setName("");
+          }}
+        >
+          Сохранить текущие
+        </button>
+      </div>
+      {Object.keys(s.profiles).map((n) => (
+        <div key={n} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ flex: 1 }}>{n}</span>
+          <button
+            type="button"
+            className="btn pri"
+            onClick={() => set({ ...s.profiles[n], profiles: s.profiles })}
+          >
+            Применить
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              const pr = { ...s.profiles };
+              delete pr[n];
+              set({ profiles: pr });
+            }}
+          >
+            Удалить
+          </button>
+        </div>
+      ))}
+      <div className="pgh">settings.json</div>
+      <textarea
+        className={`inp${err ? " bad" : ""}`}
+        style={{ minHeight: 220 }}
+        value={json}
+        onChange={(e) => setJson(e.target.value)}
+        onKeyDown={(e) => e.stopPropagation()}
+      />
+      {err && <div className="err-text">{err}</div>}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          className="btn pri"
+          onClick={() => {
+            try {
+              const v = JSON.parse(json);
+              if (typeof v !== "object" || v === null) throw new Error("ожидался объект");
+              set(v);
+              setErr("");
+            } catch (e) {
+              setErr(`Ошибка JSON: ${(e as Error).message}`);
+            }
+          }}
+        >
+          Применить JSON
+        </button>
+        <button type="button" className="btn" onClick={() => setJson(JSON.stringify(s, null, 2))}>
+          Обновить из текущих
+        </button>
+      </div>
+    </>
+  );
+}
+
 export function SettingsDialog({ section }: { section?: string }) {
   const s = useSettings((st) => st.s);
   const set = useSettings((st) => st.set);
@@ -174,6 +262,20 @@ export function SettingsDialog({ section }: { section?: string }) {
     (v: Settings[K]) =>
       set({ [k]: v } as Partial<Settings>);
   const encs = encodings();
+  const updateRule = (i: number, patch: Partial<{ from: number; to: number; color: string }>) =>
+    set({ colorRules: s.colorRules.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
+  const loadTbl = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const path = await open({
+      multiple: false,
+      filters: [{ name: "Character table", extensions: ["tbl", "txt"] }],
+    });
+    if (!path || Array.isArray(path)) return;
+    const { api } = await import("../../ipc/api");
+    const src = await api.readTextFile(path);
+    const name = path.split(/[\\/]/).pop() ?? "table.tbl";
+    set({ tblTables: { ...s.tblTables, [name]: src }, encoding: `tbl:${name}` });
+  };
   const groups = [...new Set(encs.map((e) => e.group))];
 
   return (
@@ -477,7 +579,41 @@ export function SettingsDialog({ section }: { section?: string }) {
                         ))}
                     </optgroup>
                   ))}
+                  {Object.keys(s.tblTables).length > 0 && (
+                    <optgroup label="Таблицы .tbl">
+                      {Object.keys(s.tblTables).map((n) => (
+                        <option key={n} value={`tbl:${n}`}>
+                          {n}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
+              </Row>
+              <Row label="Таблицы .tbl">
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button type="button" className="btn" onClick={loadTbl}>
+                    Загрузить .tbl…
+                  </button>
+                  {Object.keys(s.tblTables).map((n) => (
+                    <button
+                      type="button"
+                      key={n}
+                      className="chip"
+                      title="Удалить таблицу"
+                      onClick={() => {
+                        const t = { ...s.tblTables };
+                        delete t[n];
+                        set({
+                          tblTables: t,
+                          encoding: s.encoding === `tbl:${n}` ? "ascii" : s.encoding,
+                        });
+                      }}
+                    >
+                      {n} ×
+                    </button>
+                  ))}
+                </div>
               </Row>
               <Row label="Непечатаемые">
                 <Select
@@ -519,8 +655,119 @@ export function SettingsDialog({ section }: { section?: string }) {
                 checked={s.highlightSame}
                 onChange={p("highlightSame")}
               />
+              <div className="pgh">Слои подсветки</div>
+              {(
+                [
+                  ["changes", "Изменения"],
+                  ["search", "Результаты поиска"],
+                  ["marks", "Закладки и заметки"],
+                  ["structure", "Поля структуры"],
+                  ["diff", "Отличия при сравнении"],
+                ] as const
+              ).map(([k, label]) => (
+                <Check
+                  key={k}
+                  label={label}
+                  checked={s.layers[k]}
+                  onChange={(v) => set({ layers: { ...s.layers, [k]: v } })}
+                />
+              ))}
+              <div className="pgh">Свои цвета байтов</div>
+              {s.colorRules.map((r, i) => (
+                <div
+                  key={`${r.from}-${r.to}-${r.color}`}
+                  style={{ display: "flex", gap: 6, alignItems: "center" }}
+                >
+                  <span className="note">от</span>
+                  <input
+                    className="inp"
+                    style={{ width: 60 }}
+                    defaultValue={r.from.toString(16).toUpperCase()}
+                    onBlur={(e) =>
+                      updateRule(i, { from: Number.parseInt(e.target.value, 16) || 0 })
+                    }
+                  />
+                  <span className="note">до</span>
+                  <input
+                    className="inp"
+                    style={{ width: 60 }}
+                    defaultValue={r.to.toString(16).toUpperCase()}
+                    onBlur={(e) => updateRule(i, { to: Number.parseInt(e.target.value, 16) || 0 })}
+                  />
+                  <input
+                    type="color"
+                    value={r.color}
+                    onChange={(e) => updateRule(i, { color: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="ib"
+                    aria-label="Удалить правило"
+                    onClick={() => set({ colorRules: s.colorRules.filter((_, j) => j !== i) })}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn"
+                onClick={() =>
+                  set({ colorRules: [...s.colorRules, { from: 0x20, to: 0x7e, color: "#2f6bf0" }] })
+                }
+              >
+                Добавить правило (hex-диапазон значений)
+              </button>
             </>
           )}
+          {tab === "access" && (
+            <>
+              <Row label={`Масштаб интерфейса · ${Math.round(s.uiScale * 100)}%`}>
+                <input
+                  type="range"
+                  min={0.8}
+                  max={1.6}
+                  step={0.05}
+                  value={s.uiScale}
+                  onChange={(e) => set({ uiScale: Number(e.target.value) })}
+                />
+              </Row>
+              <Check
+                label="Озвучивать курсор и значения (screen reader)"
+                checked={s.screenReader}
+                onChange={p("screenReader")}
+              />
+              <Check
+                label="Подсказка со значениями при наведении на байт"
+                checked={s.hoverInspector}
+                onChange={p("hoverInspector")}
+              />
+              <Row label="Язык интерфейса">
+                <Select
+                  value={s.locale}
+                  options={[
+                    ["ru", "Русский"],
+                    ["en", "English"],
+                  ]}
+                  onChange={p("locale")}
+                />
+              </Row>
+              <Check
+                label="Проверять обновления (обращение к GitHub)"
+                checked={s.checkUpdates}
+                onChange={p("checkUpdates")}
+              />
+              <Check
+                label="Локальный API для внешних инструментов (127.0.0.1)"
+                checked={s.apiEnabled}
+                onChange={p("apiEnabled")}
+              />
+              <div className="note">
+                Данные не покидают компьютер. Сетевые функции выключены, пока вы их не включите.
+              </div>
+            </>
+          )}
+          {tab === "profiles" && <ProfilesSection />}
           {tab === "editor" && (
             <>
               <Row label="Режим при открытии">

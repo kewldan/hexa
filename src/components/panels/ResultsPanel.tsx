@@ -1,9 +1,13 @@
 // Search results list (SRCH-17), virtualised.
+
+import { save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useRef, useState } from "react";
 import { cacheFor } from "../../grid/cache";
+import { api } from "../../ipc/api";
 import { fmtSize, groupDec, hex2, hexN } from "../../lib/format";
 import * as A from "../../state/actions";
 import type { Tab } from "../../state/tabs";
+import { toast } from "../../state/ui";
 
 const ROW = 34;
 
@@ -55,6 +59,18 @@ export function ResultsPanel({ tab }: { tab: Tab }) {
           {groupDec(r.matches.length)}
           {r.truncated ? "+" : ""}
         </span>
+        <select
+          className="sel-input"
+          value=""
+          aria-label="Экспорт результатов"
+          disabled={!r.matches.length}
+          onChange={(e) => exportResults(tab, e.target.value as "csv" | "tsv" | "json")}
+        >
+          <option value="">Экспорт…</option>
+          <option value="csv">CSV</option>
+          <option value="tsv">TSV</option>
+          <option value="json">JSON</option>
+        </select>
         <button type="button" className="chip" onClick={A.clearResults}>
           Сбросить
         </button>
@@ -109,4 +125,33 @@ export function ResultsPanel({ tab }: { tab: Tab }) {
       {r.truncated && <div className="note">Показаны первые 100 000 совпадений.</div>}
     </>
   );
+}
+
+/** SRCH-18: export results with offsets, lengths and the matched bytes. */
+async function exportResults(tab: Tab, fmt: "csv" | "tsv" | "json") {
+  const r = tab.results;
+  if (!r) return;
+  const path = await save({ defaultPath: `${tab.info.name}.results.${fmt}` });
+  if (!path) return;
+  const rows = await Promise.all(
+    r.matches.slice(0, 100_000).map(async (m) => {
+      const b = m.len <= 64 ? await api.read(tab.id, m.offset, m.len) : new Uint8Array();
+      return { offset: m.offset, len: m.len, hex: Array.from(b, (x) => hex2(x)).join(" ") };
+    }),
+  );
+  const text =
+    fmt === "json"
+      ? JSON.stringify(rows, null, 2)
+      : [
+          ["offset", "length", "bytes"].join(fmt === "csv" ? "," : "\t"),
+          ...rows.map((x) =>
+            [`0x${hexN(x.offset)}`, x.len, x.hex].join(fmt === "csv" ? "," : "\t"),
+          ),
+        ].join("\n");
+  try {
+    await api.writeTextFile(path, text);
+    toast(`Экспортировано: ${rows.length}`);
+  } catch (e) {
+    A.report(e);
+  }
 }

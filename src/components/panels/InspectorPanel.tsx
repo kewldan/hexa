@@ -2,11 +2,11 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useRef, useState } from "react";
 import { cacheFor } from "../../grid/cache";
-import { api, type InspectRow, type InspectType } from "../../ipc/api";
+import { api, type ExtRow, type InspectRow, type InspectType } from "../../ipc/api";
 import { hexN } from "../../lib/format";
 import * as A from "../../state/actions";
 import { useSettings } from "../../state/settings";
-import type { Tab } from "../../state/tabs";
+import { selection, type Tab, useTabs } from "../../state/tabs";
 import { toast } from "../../state/ui";
 
 const SHORT: Partial<Record<InspectType, string>> = {
@@ -19,6 +19,7 @@ export function InspectorPanel({ tab }: { tab: Tab }) {
   const endian = useSettings((s) => s.s.inspectorEndian);
   const set = useSettings((s) => s.set);
   const [rows, setRows] = useState<InspectRow[]>([]);
+  const hidden = useSettings((st) => st.s.inspectorHidden);
   const [editing, setEditing] = useState<InspectType | null>(null);
   const [draft, setDraft] = useState("");
   const [bad, setBad] = useState(false);
@@ -51,8 +52,6 @@ export function InspectorPanel({ tab }: { tab: Tab }) {
   }, [tab.id, tab.cursor, endian, tab.info.version]);
 
   const byte = cache.byte(tab.cursor);
-  const rgba = [0, 1, 2, 3].map((i) => cache.byte(tab.cursor + i));
-  const rgbaOk = rgba.every((x) => x !== undefined);
   const readOnly = tab.info.mode === "readOnly";
 
   const commit = async () => {
@@ -104,51 +103,53 @@ export function InspectorPanel({ tab }: { tab: Tab }) {
         </span>
       </div>
       <div className="insp">
-        {rows.map((r) =>
-          editing === r.ty ? (
-            <div key={r.ty} className="ir">
-              <span className="ik">{SHORT[r.ty] ?? r.label}</span>
-              <input
-                className={bad ? "bad" : ""}
-                // biome-ignore lint/a11y/noAutofocus: editing starts on double click
-                autoFocus
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
+        {rows
+          .filter((r) => !hidden.includes(r.ty))
+          .map((r) =>
+            editing === r.ty ? (
+              <div key={r.ty} className="ir">
+                <span className="ik">{SHORT[r.ty] ?? r.label}</span>
+                <input
+                  className={bad ? "bad" : ""}
+                  // biome-ignore lint/a11y/noAutofocus: editing starts on double click
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    setBad(false);
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") commit();
+                    if (e.key === "Escape") setEditing(null);
+                  }}
+                  onBlur={() => setEditing(null)}
+                  spellCheck={false}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                key={r.ty}
+                className={`ir${r.value === null ? " na" : ""}${flashed.has(r.ty) ? " fl" : ""}`}
+                title="Клик — скопировать, двойной клик — изменить"
+                onClick={() =>
+                  r.value &&
+                  writeText(r.value).then(() => toast(`${r.label}: ${r.value} скопировано`))
+                }
+                onDoubleClick={() => {
+                  if (readOnly || tab.cursor >= tab.info.len) return;
+                  setEditing(r.ty);
                   setBad(false);
+                  const v = r.value ?? "";
+                  setDraft(v.startsWith("'") ? v.slice(1, v.indexOf("'", 1)) : v);
                 }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") commit();
-                  if (e.key === "Escape") setEditing(null);
-                }}
-                onBlur={() => setEditing(null)}
-                spellCheck={false}
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              key={r.ty}
-              className={`ir${r.value === null ? " na" : ""}${flashed.has(r.ty) ? " fl" : ""}`}
-              title="Клик — скопировать, двойной клик — изменить"
-              onClick={() =>
-                r.value &&
-                writeText(r.value).then(() => toast(`${r.label}: ${r.value} скопировано`))
-              }
-              onDoubleClick={() => {
-                if (readOnly || tab.cursor >= tab.info.len) return;
-                setEditing(r.ty);
-                setBad(false);
-                const v = r.value ?? "";
-                setDraft(v.startsWith("'") ? v.slice(1, v.indexOf("'", 1)) : v);
-              }}
-            >
-              <span className="ik">{SHORT[r.ty] ?? r.label}</span>
-              <span className="iv">{r.value ?? "—"}</span>
-            </button>
-          ),
-        )}
+              >
+                <span className="ik">{SHORT[r.ty] ?? r.label}</span>
+                <span className="iv">{r.value ?? "—"}</span>
+              </button>
+            ),
+          )}
       </div>
       <div className="ph">
         <span className="cap">Биты</span>
@@ -178,23 +179,200 @@ export function InspectorPanel({ tab }: { tab: Tab }) {
           <span key={b}>{b}</span>
         ))}
       </div>
+      <ExtendedRows tab={tab} />
+    </>
+  );
+}
+
+/** Dates, GUIDs, network, varints, strings, BCD, Q-format, colours (INSP-04…13),
+ * the selection as a whole (INSP-19), row configuration (INSP-17) and watches (INSP-20). */
+function ExtendedRows({ tab }: { tab: Tab }) {
+  const endian = useSettings((st) => st.s.inspectorEndian);
+  const hidden = useSettings((st) => st.s.inspectorHidden);
+  const q = useSettings((st) => st.s.qFormat);
+  const set = useSettings((st) => st.set);
+  const [ext, setExt] = useState<ExtRow[]>([]);
+  const [configure, setConfigure] = useState(false);
+  const [open, setOpen] = useState<Record<string, boolean>>({ "Дата и время": true });
+  const sel = selection(tab);
+  const selLen = sel.end - sel.start;
+  const useSel = selLen > 1 && selLen <= 4096;
+  const pos = useSel ? sel.start : tab.cursor;
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .inspectExt(tab.id, pos, useSel ? selLen : 64, endian, q)
+      .then((r) => alive && setExt(r))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [tab.id, pos, selLen, useSel, endian, q, tab.info.version]);
+
+  const groups = [...new Set(ext.map((r) => r.group))];
+  const toggleHidden = (key: string) =>
+    set({
+      inspectorHidden: hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key],
+    });
+  const watch = (ty: string) =>
+    useTabs.getState().update(tab.id, (t) => ({ watches: [...t.watches, { offset: pos, ty }] }));
+
+  return (
+    <>
       <div className="ph">
-        <span className="cap">Цвет · RGBA</span>
+        <span className="cap">{useSel ? `Выделение · ${selLen} Б` : "Ещё типы"}</span>
+        <div className="grow" />
+        <button
+          type="button"
+          className={`chip${configure ? " on" : ""}`}
+          onClick={() => setConfigure(!configure)}
+        >
+          Настроить
+        </button>
       </div>
-      <div className="color">
-        <span className="swatch">
-          <span
-            style={{
-              background: rgbaOk
-                ? `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${(rgba[3] ?? 255) / 255})`
-                : "transparent",
-            }}
+      {configure && (
+        <div className="note" style={{ padding: "0 8px" }}>
+          Снимите отметку, чтобы скрыть строку. Q-формат:{" "}
+          <input
+            className="sel-input"
+            style={{ width: 44 }}
+            value={q[0]}
+            onChange={(e) => set({ qFormat: [Number(e.target.value) || 0, q[1]] })}
           />
-        </span>
-        <span className="mono">
-          {rgbaOk ? `#${rgba.map((x) => hexN(x ?? 0, 2)).join("")}` : "—"}
-        </span>
+          .
+          <input
+            className="sel-input"
+            style={{ width: 44 }}
+            value={q[1]}
+            onChange={(e) => set({ qFormat: [q[0], Number(e.target.value) || 0] })}
+          />
+        </div>
+      )}
+      {groups.map((g) => (
+        <div key={g}>
+          <button
+            type="button"
+            className="pgh"
+            style={{ width: "100%", textAlign: "left" }}
+            onClick={() => setOpen({ ...open, [g]: !open[g] })}
+          >
+            {open[g] ? "▾" : "▸"} {g}
+          </button>
+          {open[g] &&
+            ext
+              .filter((r) => r.group === g && (configure || !hidden.includes(r.key)))
+              .map((r) => (
+                <div
+                  key={r.key}
+                  className={`ir${r.value === null ? " na" : ""}`}
+                  style={{
+                    gridTemplateColumns: configure
+                      ? "16px 92px minmax(0,1fr)"
+                      : "92px minmax(0,1fr) 18px",
+                  }}
+                >
+                  {configure && (
+                    <input
+                      type="checkbox"
+                      checked={!hidden.includes(r.key)}
+                      onChange={() => toggleHidden(r.key)}
+                      aria-label={r.label}
+                    />
+                  )}
+                  <span className="ik">{r.label}</span>
+                  <button
+                    type="button"
+                    className="iv"
+                    style={{ textAlign: "left", display: "flex", gap: 6, alignItems: "center" }}
+                    title="Нажмите, чтобы скопировать"
+                    onClick={() =>
+                      r.value && writeText(r.value).then(() => toast(`${r.label} скопировано`))
+                    }
+                  >
+                    {r.swatch && (
+                      <span className="swatch" style={{ width: 14, height: 14, flex: "none" }}>
+                        <span style={{ background: r.swatch }} />
+                      </span>
+                    )}
+                    {r.value ?? "—"}
+                  </button>
+                  {!configure && r.value !== null && (
+                    <button
+                      type="button"
+                      className="ib"
+                      style={{ width: 18, height: 18 }}
+                      title="Наблюдать за значением по этому адресу"
+                      onClick={() => watch(r.key)}
+                    >
+                      ◎
+                    </button>
+                  )}
+                </div>
+              ))}
+        </div>
+      ))}
+      <Watches tab={tab} />
+    </>
+  );
+}
+
+/** Values pinned to addresses, re-read after every edit (INSP-20). */
+function Watches({ tab }: { tab: Tab }) {
+  const endian = useSettings((st) => st.s.inspectorEndian);
+  const q = useSettings((st) => st.s.qFormat);
+  const [values, setValues] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    Promise.all(
+      tab.watches.map(async (w) => {
+        const core = await api.inspect(tab.id, w.offset, endian).catch(() => []);
+        const hit = core.find((r) => r.ty === w.ty);
+        if (hit) return hit.value ?? "—";
+        const ext = await api.inspectExt(tab.id, w.offset, 64, endian, q).catch(() => []);
+        return ext.find((r) => r.key === w.ty)?.value ?? "—";
+      }),
+    ).then((v) => alive && setValues(v));
+    return () => {
+      alive = false;
+    };
+  }, [tab.watches, tab.id, tab.info.version, endian, q]);
+  if (!tab.watches.length) return null;
+  return (
+    <>
+      <div className="ph">
+        <span className="cap">Наблюдение</span>
       </div>
+      {tab.watches.map((w, i) => (
+        <div
+          key={`${w.offset}-${w.ty}`}
+          className="ir"
+          style={{ gridTemplateColumns: "92px minmax(0,1fr) 18px" }}
+        >
+          <button
+            type="button"
+            className="ik"
+            style={{ textAlign: "left" }}
+            onClick={() => A.jumpTo(w.offset)}
+          >
+            0x{hexN(w.offset)} · {w.ty}
+          </button>
+          <span className="iv">{values[i] ?? "…"}</span>
+          <button
+            type="button"
+            className="ib"
+            style={{ width: 18, height: 18 }}
+            aria-label="Убрать"
+            onClick={() =>
+              useTabs
+                .getState()
+                .update(tab.id, (t) => ({ watches: t.watches.filter((_, j) => j !== i) }))
+            }
+          >
+            ×
+          </button>
+        </div>
+      ))}
     </>
   );
 }

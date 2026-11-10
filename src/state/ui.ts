@@ -13,6 +13,8 @@ export type Dialog =
   | { kind: "props" }
   | { kind: "followPointer" }
   | { kind: "moveBlock" }
+  | { kind: "replacePreview"; plan: import("../ipc/api").Planned[] }
+  | { kind: "mark"; mark: import("../ipc/api").Mark }
   | { kind: "confirm"; title: string; body: string; actions: ConfirmAction[] }
   | { kind: "recovery" }
   | { kind: "about" };

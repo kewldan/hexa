@@ -4,6 +4,7 @@ import { byteKind, fmtOffset, hex2 } from "../lib/format";
 import type { Settings } from "../state/settings";
 import type { DocCache } from "./cache";
 import type { GridLayout } from "./layout";
+import type { TblDecoder } from "./tbl";
 import type { TextDecoder2 } from "./text";
 
 export interface Palette {
@@ -140,7 +141,7 @@ export interface RenderInput {
   font: string;
   atlas: HexAtlas | null;
   cache: DocCache;
-  decoder: TextDecoder2;
+  decoder: TextDecoder2 | TblDecoder;
   len: number;
   topRow: number;
   scrollX: number;
@@ -151,6 +152,14 @@ export interface RenderInput {
   matches: Match[];
   currentMatch: number;
   readOnly: boolean;
+  /** Tinted byte ranges: marks, template fields, diff regions (DISP-16). */
+  regions?: { start: number; end: number; color: string }[];
+  /** Row pins: bookmark dots and annotation corners. */
+  pins?: { offset: number; color: string; annotation: boolean }[];
+  /** Extra selected ranges of a multi or rectangular selection (NAV-10/11). */
+  extraSel?: { start: number; end: number }[];
+  /** Bit under the cursor in binary view (DISP-08). */
+  bit?: number;
 }
 
 const F_SEL = 1;
@@ -258,7 +267,7 @@ export function renderGrid(p: RenderInput): void {
     }
   }
   let deletions: number[] = [];
-  if (s.highlightChanges) {
+  if (s.highlightChanges && s.layers.changes) {
     const spans: ChangeSpan[] = cache.changes(viewStart, viewEnd);
     for (const sp of spans) {
       if (sp.kind === "deleted") {
@@ -276,6 +285,12 @@ export function renderGrid(p: RenderInput): void {
       if (o !== p.cursor && cache.byte(o) === curByte) flags[o - viewStart] |= F_SAME;
   }
   deletions = deletions.filter((d, i, a) => a.indexOf(d) === i);
+  for (const r of p.extraSel ?? []) {
+    for (let o = Math.max(r.start, viewStart); o < Math.min(r.end, viewEnd); o++)
+      flags[o - viewStart] |= F_SEL;
+  }
+  const regions = (p.regions ?? []).filter((r) => r.end > viewStart && r.start < viewEnd);
+  const pins = (p.pins ?? []).filter((x) => x.offset >= viewStart && x.offset <= viewEnd);
 
   const cursorRow = Math.floor(p.cursor / l.bpr);
   const cursorCol = p.cursor % l.bpr;
@@ -306,6 +321,45 @@ export function renderGrid(p: RenderInput): void {
       ctx.fillRect(0, y, widthAll, rowH);
     }
     const mid = y + rowH / 2;
+
+    // Tinted regions (marks, structure fields, diff) under everything else.
+    for (const r of regions) {
+      const a = Math.max(r.start, rowOff);
+      const b = Math.min(r.end, rowOff + l.bpr);
+      if (a >= b) continue;
+      ctx.fillStyle = r.color;
+      if (l.columns.includes("hex")) {
+        const c0 = Math.floor((a - rowOff) / l.cellBytes);
+        const c1 = Math.floor((b - 1 - rowOff) / l.cellBytes);
+        const x0 = l.hexX + l.cellX[c0];
+        const x1 = l.hexX + l.cellX[c1] + l.cellW;
+        ctx.fillRect(x0, y + pad, x1 - x0, rowH - pad * 2);
+      }
+      if (l.columns.includes("text")) {
+        ctx.fillRect(
+          l.textX + (a - rowOff) * l.textCharW,
+          y + pad,
+          (b - a) * l.textCharW,
+          rowH - pad * 2,
+        );
+      }
+    }
+    for (const pin of pins) {
+      if (pin.offset < rowOff || pin.offset >= rowOff + l.bpr) continue;
+      ctx.fillStyle = pin.color;
+      if (pin.annotation && l.columns.includes("hex")) {
+        const x = l.hexX + l.cellX[Math.floor((pin.offset - rowOff) / l.cellBytes)];
+        ctx.beginPath();
+        ctx.moveTo(x, y + pad);
+        ctx.lineTo(x + 7, y + pad);
+        ctx.lineTo(x, y + pad + 7);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(9, mid0(y, rowH), 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     // Offset column (DISP-06).
     if (l.columns.includes("offset")) {
@@ -374,12 +428,17 @@ export function renderGrid(p: RenderInput): void {
           continue;
         }
         const changed = f & (F_MOD | F_INS);
+        const rule = l.cellBytes === 1 ? ruleColor(s.colorRules, Number(value)) : null;
         const kindColor = s.colorBytes && l.cellBytes === 1 ? byteKind(Number(value)) : 1;
-        if (p.atlas && l.cellBytes === 1 && s.cellView === "hex" && !changed) {
+        if (p.atlas && l.cellBytes === 1 && s.cellView === "hex" && !changed && !rule) {
           p.atlas.draw(ctx, Number(value), kindColor, cx, y);
         } else {
           ctx.textAlign = "center";
-          ctx.fillStyle = changed ? (f & F_MOD ? pal.mod : pal.ins) : pal.kinds[kindColor];
+          ctx.fillStyle = changed
+            ? f & F_MOD
+              ? pal.mod
+              : pal.ins
+            : (rule ?? pal.kinds[kindColor]);
           if (changed) ctx.font = `600 ${p.font.replace(/^\d+ /, "")}`;
           ctx.fillText(formatCell(s.cellView, value, l.cellBytes, s.lowercase), cx, mid);
           if (changed) ctx.font = p.font;
@@ -448,6 +507,17 @@ export function renderGrid(p: RenderInput): void {
     ctx.fillRect(l.textX - 16, 0, 1, p.height);
   }
   ctx.restore();
+}
+
+/** DISP-14: first user rule whose value range contains the byte. */
+function ruleColor(rules: Settings["colorRules"], v: number): string | null {
+  for (const r of rules)
+    if (v >= Math.min(r.from, r.to) && v <= Math.max(r.from, r.to)) return r.color;
+  return null;
+}
+
+function mid0(y: number, rowH: number) {
+  return y + rowH / 2;
 }
 
 function roundRect(

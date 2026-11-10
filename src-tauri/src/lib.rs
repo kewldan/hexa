@@ -176,6 +176,8 @@ pub fn run() {
             commands::app::window_new,
             commands::app::workspace_save,
             commands::app::workspace_load,
+            commands::app::read_text_file,
+            commands::app::write_text_file,
             commands::app::recovery_list,
             commands::app::recovery_restore,
             commands::app::recovery_discard,

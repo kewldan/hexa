@@ -1,5 +1,6 @@
 // Modal dialogs.
 import { type ReactNode, useEffect, useState } from "react";
+import type { Mark, Planned } from "../../ipc/api";
 import {
   api,
   type CopyFormat,
@@ -10,9 +11,11 @@ import {
 } from "../../ipc/api";
 import { evalExpr } from "../../lib/expr";
 import { fmtSize, groupDec, hexN, parseHexBytes, relTime } from "../../lib/format";
+import { renderMarkdown } from "../../lib/markdown";
 import * as A from "../../state/actions";
 import { selection, selectionOrByte, useActiveTab } from "../../state/tabs";
 import { closeDialog, type Dialog, toast, useUi } from "../../state/ui";
+import { MARK_COLORS } from "../panels/MarksPanel";
 import { SettingsDialog } from "./Settings";
 
 export function Modal({
@@ -722,6 +725,213 @@ function PropsDialog() {
   );
 }
 
+function ReplacePreviewDialog({ plan }: { plan: Planned[] }) {
+  const tab = useActiveTab();
+  const [skip, setSkip] = useState<Set<number>>(new Set());
+  if (!tab) return null;
+  const hx = (b: number[]) =>
+    b.length > 24
+      ? `${b
+          .slice(0, 24)
+          .map((x) => hexN(x, 2))
+          .join(" ")} …`
+      : b.map((x) => hexN(x, 2)).join(" ");
+  const chosen = plan.filter((_, i) => !skip.has(i));
+  return (
+    <Modal
+      wide
+      title={`Заменить ${chosen.length} из ${plan.length}`}
+      footer={
+        <>
+          <button type="button" className="btn" onClick={closeDialog}>
+            Отмена
+          </button>
+          <button
+            type="button"
+            className="btn pri"
+            disabled={!chosen.length}
+            onClick={async () => {
+              closeDialog();
+              try {
+                const r = await api.replaceApply(
+                  tab.id,
+                  chosen.map((p) => ({ offset: p.offset, len: p.len, new: p.new })),
+                );
+                A.applyResult(tab.id, r);
+                toast(`Заменено: ${chosen.length} — отменяется одним шагом`);
+              } catch (e) {
+                A.report(e);
+              }
+            }}
+          >
+            Заменить
+          </button>
+        </>
+      }
+    >
+      <div className="note">
+        Предпросмотр всех замен (SRCH-22). Снимите отметку, чтобы пропустить.
+      </div>
+      <div className="list" style={{ maxHeight: 360, overflow: "auto" }}>
+        {plan.slice(0, 2000).map((p, i) => (
+          <label
+            key={p.offset}
+            className="li"
+            style={{ gridTemplateColumns: "16px 100px minmax(0,1fr)", animation: "none" }}
+          >
+            <input
+              type="checkbox"
+              checked={!skip.has(i)}
+              onChange={() => {
+                const n = new Set(skip);
+                if (n.has(i)) n.delete(i);
+                else n.add(i);
+                setSkip(n);
+              }}
+            />
+            <span className="mono">0x{hexN(p.offset, 8)}</span>
+            <span className="mono" style={{ fontSize: 11.5 }}>
+              <span style={{ color: "var(--mod)" }}>{hx(p.old)}</span> →{" "}
+              <span style={{ color: "var(--ins)" }}>{hx(p.new)}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {plan.length > 2000 && <div className="note">Показаны первые 2000.</div>}
+    </Modal>
+  );
+}
+
+function MarkDialog({ mark }: { mark: Mark }) {
+  const tab = useActiveTab();
+  const [m, setM] = useState(mark);
+  const [preview, setPreview] = useState(false);
+  if (!tab) return null;
+  const set = (p: Partial<Mark>) => setM({ ...m, ...p });
+  const save = async () => {
+    closeDialog();
+    await api.marksUpdate(tab.id, m);
+    await A.refreshMarks(tab.id);
+  };
+  return (
+    <Modal
+      wide
+      title={m.kind === "label" ? "Метка" : m.kind === "annotation" ? "Заметка" : "Закладка"}
+      footer={
+        <>
+          <button
+            type="button"
+            className="btn danger"
+            style={{ marginRight: "auto" }}
+            onClick={async () => {
+              closeDialog();
+              await api.marksRemove(tab.id, m.id);
+              await A.refreshMarks(tab.id);
+            }}
+          >
+            Удалить
+          </button>
+          <button type="button" className="btn" onClick={closeDialog}>
+            Отмена
+          </button>
+          <button type="button" className="btn pri" onClick={save}>
+            Сохранить
+          </button>
+        </>
+      }
+    >
+      <div className="row-f">
+        <span>Имя</span>
+        <input className="inp" value={m.name} onChange={(e) => set({ name: e.target.value })} />
+      </div>
+      <div className="row-f">
+        <span>Тип</span>
+        <select
+          className="inp"
+          value={m.kind}
+          onChange={(e) => set({ kind: e.target.value as Mark["kind"] })}
+        >
+          <option value="bookmark">Закладка</option>
+          <option value="label">Метка (имя для «Перейти»)</option>
+          <option value="annotation">Заметка на данных</option>
+        </select>
+      </div>
+      <div className="row-f">
+        <span>Цвет</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {Object.entries(MARK_COLORS).map(([name, c]) => (
+            <button
+              type="button"
+              key={name}
+              aria-label={name}
+              onClick={() => set({ color: name })}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: c,
+                boxShadow: m.color === name ? `0 0 0 2px var(--ed), 0 0 0 4px ${c}` : "none",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="row-f">
+        <span>Диапазон (hex)</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            className="inp"
+            value={hexN(m.start)}
+            onChange={(e) => {
+              const v = Number.parseInt(e.target.value || "0", 16);
+              if (Number.isFinite(v)) set({ start: v });
+            }}
+          />
+          <input
+            className="inp"
+            value={hexN(m.end)}
+            onChange={(e) => {
+              const v = Number.parseInt(e.target.value || "0", 16);
+              if (Number.isFinite(v)) set({ end: v });
+            }}
+          />
+        </div>
+      </div>
+      <div className="row-f">
+        <span>Тип данных</span>
+        <select
+          className="inp"
+          value={m.dataType ?? ""}
+          onChange={(e) => set({ dataType: e.target.value || null })}
+        >
+          <option value="">—</option>
+          {["u8", "u16", "u32", "u64", "i32", "f32", "f64", "string", "utf16", "bytes"].map((t) => (
+            <option key={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+      <div className="row-f" style={{ alignItems: "start" }}>
+        <span>
+          Заметка (Markdown){" "}
+          <button type="button" className="chip" onClick={() => setPreview(!preview)}>
+            {preview ? "Править" : "Просмотр"}
+          </button>
+        </span>
+        {preview ? (
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: rendered from escaped Markdown
+          <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.note) }} />
+        ) : (
+          <textarea
+            className="inp"
+            value={m.note}
+            onChange={(e) => set({ note: e.target.value })}
+          />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function MoveBlockDialog() {
   const tab = useActiveTab();
   const to = useNumber("0");
@@ -973,6 +1183,10 @@ export function Dialogs() {
       return <PasteDialog text={d.text} />;
     case "props":
       return <PropsDialog />;
+    case "replacePreview":
+      return <ReplacePreviewDialog plan={d.plan} />;
+    case "mark":
+      return <MarkDialog mark={d.mark} />;
     case "moveBlock":
       return <MoveBlockDialog />;
     case "followPointer":

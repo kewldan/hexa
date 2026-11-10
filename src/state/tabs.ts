@@ -1,6 +1,6 @@
 // Open tabs of this window and their view state.
 import { create } from "zustand";
-import type { DocInfo, Match } from "../ipc/api";
+import type { DocInfo, Mark, Match } from "../ipc/api";
 
 export type GridColumn = "hex" | "text";
 
@@ -38,6 +38,28 @@ export interface Tab {
   /** Bumped to make the cursor animate with a spring (jumps). */
   jumpSeq: number;
   flash: { start: number; end: number; seq: number } | null;
+  /** Bookmarks, labels and annotations (NAV-14…18), refreshed after edits. */
+  marks: Mark[];
+  /** Extra ranges of a multi or rectangular selection, half-open (NAV-10/11). */
+  extra: { start: number; end: number }[];
+  /** Bit under the cursor in bit mode (DISP-08). */
+  bit: number;
+  /** Additional panes of a split view of this file (DISP-20/22). */
+  panes: Pane[];
+  paneSync: boolean;
+  /** Collapsed regions (DISP-23/24). */
+  folds: { start: number; end: number }[];
+  /** Watched values (INSP-20). */
+  watches: { offset: number; ty: string }[];
+}
+
+export interface Pane {
+  topRow: number;
+  scrollX: number;
+  /** Per-pane view overrides (DISP-22). */
+  bytesPerRow?: number | "auto" | "pow2";
+  cellView?: string;
+  encoding?: string;
 }
 
 interface TabsStore {
@@ -73,6 +95,13 @@ export function newTab(info: DocInfo): Tab {
     results: null,
     jumpSeq: 0,
     flash: null,
+    marks: [],
+    extra: [],
+    bit: 0,
+    panes: [],
+    paneSync: true,
+    folds: [],
+    watches: [],
   };
 }
 

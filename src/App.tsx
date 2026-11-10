@@ -33,12 +33,13 @@ function useTheme() {
       for (const [k, v] of Object.entries(s.themeOverrides)) root.style.setProperty(k, v);
       root.dataset.motion = s.reduceMotion ? "reduce" : "full";
       root.dataset.cvd = s.colorBlind ? "1" : "0";
+      root.style.setProperty("--ui-scale", String(s.uiScale));
     };
     apply();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
-  }, [s.theme, s.accent, s.themeOverrides, s.reduceMotion, s.colorBlind]);
+  }, [s.theme, s.accent, s.themeOverrides, s.reduceMotion, s.colorBlind, s.uiScale]);
 }
 
 /** Global keyboard: chords (with Emacs-style sequences), vim, then typing. */
@@ -97,7 +98,9 @@ function useKeyboard() {
       if (t.column === "hex") {
         const n = Number.parseInt(e.key, 16);
         const s = useSettings.getState().s;
-        if (s.cellView === "char") A.typeText(e.key);
+        if (s.cellView === "bin" && s.cellWidth === 1 && (e.key === "0" || e.key === "1"))
+          A.typeBit(e.key === "1" ? 1 : 0);
+        else if (s.cellView === "char") A.typeText(e.key);
         else if (s.cellView === "float")
           toast("Числа с плавающей точкой правятся в инспекторе", true);
         else if (s.cellView !== "hex" || s.cellWidth !== 1) A.typeCellDigit(e.key);
@@ -226,7 +229,10 @@ export function App() {
 
   // Focus the grid when switching tabs.
   useEffect(() => {
-    if (tab) setTimeout(() => document.querySelector<HTMLElement>("[data-hx-grid]")?.focus(), 0);
+    if (tab) {
+      setTimeout(() => document.querySelector<HTMLElement>("[data-hx-grid]")?.focus(), 0);
+      void A.refreshMarks(tab.id);
+    }
   }, [tab?.id]);
 
   if (!loaded) return <div className="app" />;
