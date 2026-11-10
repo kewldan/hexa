@@ -1738,6 +1738,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hexa-analysis"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-cli"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
 name = "hexa-core"
 version = "0.1.0"
 dependencies = [
@@ -1765,6 +1779,48 @@ dependencies = [
  "tiger",
  "whirlpool",
  "xattr",
+]
+
+[[package]]
+name = "hexa-diff"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-re"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-script"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-sys"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-template"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
+]
+
+[[package]]
+name = "hexa-transform"
+version = "0.1.0"
+dependencies = [
+ "hexa-core",
 ]
 
 [[package]]

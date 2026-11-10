@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["crates/hexa-core", "src-tauri"]
+members = ["crates/*", "src-tauri"]
+exclude = ["crates/hexa-core/fuzz"]
 
 [workspace.package]
 version = "0.1.0"
