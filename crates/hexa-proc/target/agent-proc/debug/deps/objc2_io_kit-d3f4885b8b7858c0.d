@@ -1,0 +1,10 @@
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/objc2_io_kit-d3f4885b8b7858c0.d: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/consumes_argument.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/generated/mod.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/macros.rs
+
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/libobjc2_io_kit-d3f4885b8b7858c0.rlib: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/consumes_argument.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/generated/mod.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/macros.rs
+
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/libobjc2_io_kit-d3f4885b8b7858c0.rmeta: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/consumes_argument.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/generated/mod.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/macros.rs
+
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/lib.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/consumes_argument.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/generated/mod.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-io-kit-0.3.2/src/macros.rs:

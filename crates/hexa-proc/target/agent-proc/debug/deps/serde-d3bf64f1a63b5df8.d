@@ -1,0 +1,14 @@
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/serde-d3bf64f1a63b5df8.d: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/serde-0d423cc53abf9420/out/private.rs
+
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/libserde-d3bf64f1a63b5df8.rlib: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/serde-0d423cc53abf9420/out/private.rs
+
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/libserde-d3bf64f1a63b5df8.rmeta: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/serde-0d423cc53abf9420/out/private.rs
+
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/serde-0d423cc53abf9420/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/serde-0d423cc53abf9420/out

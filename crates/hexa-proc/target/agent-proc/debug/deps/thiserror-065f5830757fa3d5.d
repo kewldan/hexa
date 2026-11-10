@@ -1,0 +1,14 @@
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/thiserror-065f5830757fa3d5.d: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs /Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/thiserror-fec309beb0505504/out/private.rs
+
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/libthiserror-065f5830757fa3d5.rlib: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs /Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/thiserror-fec309beb0505504/out/private.rs
+
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/deps/libthiserror-065f5830757fa3d5.rmeta: /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs /Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs /Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/thiserror-fec309beb0505504/out/private.rs
+
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/aserror.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/display.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/var.rs:
+/Users/kewldan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/private.rs:
+/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/thiserror-fec309beb0505504/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/kewldan/projects/hexa/crates/hexa-proc/target/agent-proc/debug/build/thiserror-fec309beb0505504/out
