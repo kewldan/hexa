@@ -30,6 +30,7 @@ hexa-proc = { path = "../crates/hexa-proc" }
 hexa-re = { path = "../crates/hexa-re" }
 hexa-script = { path = "../crates/hexa-script" }
 hexa-sys = { path = "../crates/hexa-sys" }
+hexa-template = { path = "../crates/hexa-template" }
 hexa-transform = { path = "../crates/hexa-transform" }
 notify = "8.2.2"
 parking_lot = "0.13.0"

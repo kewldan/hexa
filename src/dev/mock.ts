@@ -669,6 +669,57 @@ export function installMock() {
         }
         case "re_tools":
           return [];
+        case "tpl_library":
+          return [
+            {
+              id: "png",
+              name: "PNG",
+              description: "Portable Network Graphics",
+              extensions: ["png"],
+            },
+            { id: "zip", name: "ZIP", description: "ZIP archive", extensions: ["zip"] },
+          ];
+        case "tpl_detect":
+          return ["png"];
+        case "tpl_apply":
+        case "tpl_reapply":
+          return mockTemplate(a.key ?? 1);
+        case "tpl_children":
+          return (MOCK_TPL_CHILDREN[a.node] ?? []).slice(a.start, a.end);
+        case "tpl_node_at": {
+          const hitNode = a.offset < 8 ? 2 : a.offset < 12 ? 4 : a.offset < 16 ? 5 : null;
+          return hitNode === null
+            ? null
+            : { path: hitNode === 2 ? [1, 2] : [1, 3, hitNode], elementIndex: null };
+        }
+        case "tpl_ranges_at":
+          return a.offset < 8
+            ? [
+                [0, 8],
+                [0, 33],
+              ]
+            : [
+                [8, 12],
+                [8, 33],
+                [0, 33],
+              ];
+        case "tpl_diagnostics":
+          return /struct\s*\{/.test(a.text) && !/\}/.test(a.text)
+            ? [
+                {
+                  line: 1,
+                  col: 1,
+                  endLine: 1,
+                  endCol: 2,
+                  severity: "error",
+                  message: "expected `}`",
+                },
+              ]
+            : [];
+        case "tpl_suggest":
+          return [{ ty: "u32le", value: "1196314761", confidence: 0.4, reason: "mock" }];
+        case "tpl_remove":
+          return null;
         case "app_info":
           return { version: "0.1.0", portable: false, configDir: "/mock" };
         case "app_print":
@@ -813,4 +864,70 @@ function mockTransform(
     } else throw { kind: "transform", message: `mock: ${st.kind} is not supported` };
   }
   return data;
+}
+
+function tplNode(
+  id: number,
+  parent: number | null,
+  name: string,
+  typeName: string,
+  kind: string,
+  offset: number,
+  size: number,
+  value: string | null,
+  children: number[] = [],
+) {
+  return {
+    id,
+    parent,
+    name,
+    displayName: null,
+    typeName,
+    kind,
+    offset,
+    size,
+    bitOffset: null,
+    bitSize: null,
+    value,
+    children,
+    comment: null,
+    error: null,
+    enumName: null,
+    isArray: false,
+    len: 0,
+    elemIndex: null,
+    hidden: false,
+    lazy: false,
+    childCount: children.length,
+    color: { palette: id % 6 },
+  };
+}
+
+/** A fixed PNG-like tree for the mock structure panel. */
+const MOCK_TPL_CHILDREN: Record<number, ReturnType<typeof tplNode>[]> = {
+  1: [
+    tplNode(2, 1, "signature", "u8[8]", "array", 0, 8, "89 50 4E 47 0D 0A 1A 0A"),
+    tplNode(3, 1, "ihdr", "Chunk", "struct", 8, 25, null, [4, 5]),
+  ],
+  3: [
+    tplNode(4, 3, "length", "u32", "primitive", 8, 4, "13"),
+    tplNode(5, 3, "type", "char[4]", "string", 12, 4, '"IHDR"'),
+  ],
+};
+
+function mockTemplate(key: number) {
+  return {
+    key,
+    name: "PNG",
+    roots: [tplNode(1, null, "png", "PNG", "struct", 0, 33, null, [2, 3])],
+    errors: [],
+    log: [],
+    truncated: false,
+    nodeCount: 5,
+    highlights: [
+      { start: 0, end: 8, color: "#2F6BF0", node: 2 },
+      { start: 8, end: 12, color: "#1F9D74", node: 4 },
+      { start: 12, end: 16, color: "#E8890C", node: 5 },
+    ],
+  };
 }

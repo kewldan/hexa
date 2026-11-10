@@ -187,3 +187,17 @@ test("calculator evaluates and help lists commands", async ({ page }) => {
   await page.getByRole("textbox", { name: "Найти команду" }).fill("калькулятор");
   await expect(page.locator(".help-row")).toHaveCount(1);
 });
+
+test("structure panel shows the template tree and follows the cursor", async ({ page }) => {
+  await page.locator('.side-tab[aria-label="Структура"]').click();
+  await page.getByRole("combobox", { name: "Применить шаблон" }).selectOption("png");
+  await expect(page.locator(".st-row").first()).toContainText("png");
+  // The tree opens down to the field under the cursor by itself.
+  await expect(page.locator(".st-row", { hasText: "signature" })).toBeVisible();
+  await expect(page.locator(".st-row.hit")).toContainText("signature");
+  await page.locator(".st-row", { hasText: "signature" }).click();
+  await expect(page.locator(".sb")).toContainText("Выделено");
+  await page.getByRole("tab", { name: "Редактор" }).click();
+  await page.getByRole("textbox", { name: "Исходный текст шаблона" }).fill("struct {");
+  await expect(page.locator(".st-diags .err")).toContainText("expected");
+});

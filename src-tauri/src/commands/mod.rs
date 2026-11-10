@@ -7,6 +7,7 @@ pub mod memory;
 pub mod re;
 pub mod script;
 pub mod sources;
+pub mod template;
 pub mod tools;
 pub mod transform;
 pub mod yara;

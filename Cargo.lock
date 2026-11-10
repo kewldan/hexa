@@ -2507,6 +2507,7 @@ dependencies = [
  "hexa-re",
  "hexa-script",
  "hexa-sys",
+ "hexa-template",
  "hexa-transform",
  "notify",
  "parking_lot 0.13.0",

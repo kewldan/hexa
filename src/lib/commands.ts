@@ -1049,6 +1049,38 @@ export const COMMANDS: Command[] = [
     doc: true,
     run: () => openDialog({ kind: "viewLink" }),
   },
+  // Structures (STRC, NAV-12)
+  {
+    id: "struct.expand",
+    title: "Расширить выделение до поля, затем структуры",
+    group: "Структура",
+    doc: true,
+    run: () => import("../state/templates").then((m) => m.expandSelection()),
+  },
+  {
+    id: "struct.shrink",
+    title: "Сузить выделение обратно",
+    group: "Структура",
+    doc: true,
+    run: () => import("../state/templates").then((m) => m.shrinkSelection()),
+  },
+  {
+    id: "struct.auto",
+    title: "Определить формат и применить шаблон",
+    group: "Структура",
+    doc: true,
+    run: () => {
+      const t = activeTab();
+      if (t) void import("../state/templates").then((m) => m.autoApply(t.id));
+      showPanel("structure");
+    },
+  },
+  {
+    id: "view.structure",
+    title: "Панель структуры",
+    group: "Вид",
+    run: () => showPanel("structure"),
+  },
   // Scripts (SCR-01…04)
   {
     id: "script.console",
@@ -1235,6 +1267,8 @@ const BASE: Keymap = {
   "edit.clipHistory": ["Alt+Mod+V"],
   "file.print": ["Mod+P"],
   "search.inFiles": ["Shift+Mod+F"],
+  "struct.expand": ["Shift+Alt+Right"],
+  "struct.shrink": ["Shift+Alt+Left"],
   "diff.prev": ["Shift+F7"],
   "view.foldSelection": ["Alt+Mod+["],
   "view.unfoldAll": ["Alt+Mod+]"],

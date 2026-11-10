@@ -103,6 +103,7 @@ pub fn run() {
         .manage(script::ScriptState::default())
         .manage(commands::sources::SourceState::default())
         .manage(commands::memory::MemState::default())
+        .manage(commands::template::TplState::default())
         .setup(|app| {
             let handle = app.handle();
             let state = app.state::<AppState>();
@@ -203,6 +204,25 @@ pub fn run() {
             desktop::app_info,
             desktop::app_print,
             commands::yara::yara_scan,
+            commands::template::tpl_library,
+            commands::template::tpl_detect,
+            commands::template::tpl_apply,
+            commands::template::tpl_reapply,
+            commands::template::tpl_remove,
+            commands::template::tpl_children,
+            commands::template::tpl_expand,
+            commands::template::tpl_node_at,
+            commands::template::tpl_ranges_at,
+            commands::template::tpl_set_value,
+            commands::template::tpl_filter,
+            commands::template::tpl_export,
+            commands::template::tpl_diff,
+            commands::template::tpl_scan,
+            commands::template::tpl_diagnostics,
+            commands::template::tpl_completions,
+            commands::template::tpl_library_source,
+            commands::template::tpl_suggest,
+            commands::template::tpl_generate,
             commands::files::files_search,
             commands::files::file_split,
             commands::files::files_concat,
