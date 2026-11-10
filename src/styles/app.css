@@ -2166,7 +2166,7 @@ textarea.inp {
   .tab:not(.on) {
     display: none;
   }
-  .sb .opt {
+  .sb .sb-opt {
     display: none;
   }
   .start .inner {

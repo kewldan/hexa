@@ -87,7 +87,7 @@ export function StatusBar({ tab }: { tab: Tab }) {
         </span>
       )}
       {tab.info.modified && (
-        <span className="sbi st opt">
+        <span className="sbi st sb-opt">
           <span className="mut">Правки</span>
           <span className="mono">{groupDec(tab.info.pieceCount)} фрагм.</span>
         </span>
@@ -118,7 +118,7 @@ export function StatusBar({ tab }: { tab: Tab }) {
       {tab.info.fixedSize && (
         <button
           type="button"
-          className="sbi opt"
+          className="sbi sb-opt"
           onClick={A.toggleFixed}
           title="Размер файла зафиксирован"
         >
@@ -127,7 +127,7 @@ export function StatusBar({ tab }: { tab: Tab }) {
       )}
       <button
         type="button"
-        className="sbi opt"
+        className="sbi sb-opt"
         onClick={() => runCommand("view.encoding")}
         title="Кодировка текстовой колонки"
       >
@@ -135,7 +135,7 @@ export function StatusBar({ tab }: { tab: Tab }) {
       </button>
       <button
         type="button"
-        className="sbi opt"
+        className="sbi sb-opt"
         onClick={() => set({ inspectorEndian: s.inspectorEndian === "little" ? "big" : "little" })}
         title="Порядок байтов"
       >
