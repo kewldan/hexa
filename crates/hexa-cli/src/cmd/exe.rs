@@ -179,6 +179,38 @@ pub fn run(a: &ExeArgs, json_out: bool) -> CliResult {
 }
 
 fn render_info(s: &mut String, info: &ExecutableInfo, a: &ExeArgs) {
+    if !info.slices.is_empty() {
+        // A universal binary: list its slices instead of an empty image.
+        let _ = writeln!(
+            s,
+            "Format:      universal binary, {} slices",
+            info.slices.len()
+        );
+        let _ = writeln!(
+            s,
+            "\nSlices:\n  {:<10} {:>10} {:>10}  image",
+            "arch", "offset", "size"
+        );
+        for sl in &info.slices {
+            let image = match (&sl.info, &sl.error) {
+                (Some(i), _) => format!(
+                    "{} {}-bit {} ({})",
+                    name_of(&i.format),
+                    i.bits,
+                    i.machine,
+                    i.kind
+                ),
+                (None, Some(e)) => format!("error: {e}"),
+                (None, None) => String::new(),
+            };
+            let _ = writeln!(
+                s,
+                "  {:<10} {:>10X} {:>10X}  {image}",
+                sl.arch_name, sl.offset, sl.size
+            );
+        }
+        return;
+    }
     let all = a.all;
     let _ = writeln!(
         s,

@@ -104,8 +104,8 @@ hexa-cli info firmware.bin                      # size, entropy, detected format
 hexa-cli hash image.iso -a sha256,crc32 --expect sha256=…
 hexa-cli search dump.bin --hex "DE AD ?? EF" --count
 hexa-cli diff old.bin new.bin --stats -f json
-hexa-cli patch create old.rom new.rom fix.bps
-hexa-cli convert app.bin app.hex --base 0x08000000
+hexa-cli patch create old.rom new.rom -o fix.bps
+hexa-cli convert app.bin -o app.hex --base 0x08000000
 hexa-cli template disk.img gpt                  # template → JSON
 hexa-cli exe app.exe --disasm entry -n 20
 ```
