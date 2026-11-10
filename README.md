@@ -10,7 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="#-build-from-source"><b>🛠️ Build from source</b></a>
+  <a href="https://github.com/kewldan/hexa/releases/latest"><b>⬇️ Download the latest release</b></a>
+  &nbsp;·&nbsp;
+  <a href="#-install">Install guide</a>
+  &nbsp;·&nbsp;
+  <a href="#-build-from-source">Build from source</a>
   &nbsp;·&nbsp;
   <a href="#-command-line">Command line</a>
   &nbsp;·&nbsp;
@@ -33,7 +37,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/editor.jpg" width="860" alt="The editor with a bookmark, the data inspector and the hex grid">
+  <img src="docs/demo.gif" width="860" alt="Opening a file, the structure tree following the cursor, analysis, the command palette and a side-by-side diff">
 </p>
 
 ## ✨ Highlights
@@ -60,6 +64,22 @@
 | ![Structure tree of a PNG synced with the grid](docs/screenshots/structure.jpg) | ![Two versions compared with highlighted differences](docs/screenshots/diff.jpg) |
 | **Analysis** | **Transformations** |
 | ![Entropy, byte histogram and data classes](docs/screenshots/analysis.jpg) | ![A XOR recipe with live preview](docs/screenshots/transform.jpg) |
+
+## 📥 Install
+
+Download the installer for your system from the [latest release](https://github.com/kewldan/hexa/releases/latest):
+
+| System | File |
+| --- | --- |
+| macOS 11+ (Apple Silicon and Intel) | `Hexa_<version>_universal.dmg` |
+| Windows 10+ | `Hexa_<version>_x64-setup.exe` or `.msi` |
+| Linux | `.AppImage`, `.deb` or `.rpm` |
+| Command line | `hexa-cli-v<version>-<target>.tar.gz` / `.zip` |
+
+> [!NOTE]
+> The macOS build is not notarized. After dragging Hexa to Applications, open it once and allow it in **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Hexa.app`.
+
+Every file is listed in `SHA256SUMS.txt` on the release page.
 
 ## 🛠️ Build from source
 
