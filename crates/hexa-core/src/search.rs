@@ -98,8 +98,14 @@ pub struct Match {
 
 #[derive(Debug)]
 pub enum Matcher {
-    Literal { finder: memmem::Finder<'static> },
-    Regex { re: Regex, max_len: usize },
+    /// Boxed: on `x86_64` the SIMD searcher makes `Finder` ~300 bytes.
+    Literal {
+        finder: Box<memmem::Finder<'static>>,
+    },
+    Regex {
+        re: Regex,
+        max_len: usize,
+    },
     Numeric(Numeric),
 }
 
@@ -271,7 +277,7 @@ fn bytes_regex(pattern: &str, max_len: usize) -> Result<Matcher> {
 
 fn literal(bytes: &[u8]) -> Matcher {
     Matcher::Literal {
-        finder: memmem::Finder::new(bytes).into_owned(),
+        finder: Box::new(memmem::Finder::new(bytes).into_owned()),
     }
 }
 
