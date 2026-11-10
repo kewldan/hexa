@@ -15,6 +15,7 @@ import {
   type PlotSeries,
   type RegionKind,
   type Rgba,
+  type YaraReport,
 } from "../../ipc/analysis";
 import { api } from "../../ipc/api";
 import { fmtSize, hexN } from "../../lib/format";
@@ -45,7 +46,7 @@ const REGION_LABEL: Record<RegionKind, string> = {
 };
 const CLASS_COLORS = ["#000000", "#1F9D74", "#2F6BF0", "#DC2626", "#FFFFFF"];
 
-type Section = "overview" | "map" | "plot" | "image" | "embedded";
+type Section = "overview" | "map" | "plot" | "image" | "embedded" | "yara";
 
 function cssVar(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
@@ -737,12 +738,103 @@ function EmbeddedSection({ tab }: { tab: Tab }) {
   );
 }
 
+const YARA_SAMPLE = `rule elf_header {
+  strings:
+    $magic = { 7F 45 4C 46 }
+  condition:
+    $magic at 0
+}`;
+
+function YaraSection({ tab }: { tab: Tab }) {
+  const range = useRange(tab);
+  const [rules, setRules] = useState(() => {
+    try {
+      return localStorage.getItem("hx-yara") ?? YARA_SAMPLE;
+    } catch {
+      return YARA_SAMPLE;
+    }
+  });
+  const [rep, setRep] = useState<YaraReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = () => {
+    try {
+      localStorage.setItem("hx-yara", rules);
+    } catch {}
+    setBusy(true);
+    anl
+      .yara(tab.id, rules, range.start, range.end)
+      .then(setRep)
+      .catch(A.report)
+      .finally(() => setBusy(false));
+  };
+  const load = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const p = await open({
+      multiple: false,
+      filters: [{ name: "YARA", extensions: ["yar", "yara", "txt"] }],
+    });
+    if (typeof p === "string") setRules(await api.readTextFile(p));
+  };
+  return (
+    <>
+      <textarea
+        className="inp mono yara-src"
+        aria-label="Правила YARA"
+        spellCheck={false}
+        value={rules}
+        onChange={(e) => setRules(e.target.value)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run();
+        }}
+      />
+      <div className="xf-actions">
+        <button type="button" className="btn pri" onClick={run} disabled={busy}>
+          {busy ? "Проверяю…" : "Проверить"}
+        </button>
+        <button type="button" className="chip" onClick={load}>
+          Из файла…
+        </button>
+        {rep && <span className="note">сработало правил: {rep.matches.length}</span>}
+      </div>
+      {rep?.warnings.map((w) => (
+        <div key={w} className="note" style={{ padding: "0 6px" }}>
+          ⚠ {w}
+        </div>
+      ))}
+      <div className="list">
+        {rep?.matches.map((m) => (
+          <div key={`${m.namespace}:${m.rule}`} className="fif">
+            <b>
+              {m.rule}
+              {m.tags.length > 0 && <span className="note"> · {m.tags.join(", ")}</span>}
+            </b>
+            <div className="fif-offs">
+              {m.strings.slice(0, 64).map((s) => (
+                <button
+                  type="button"
+                  key={`${s.identifier}@${s.offset}`}
+                  className="chip mono"
+                  onClick={() => A.selectRange(s.offset, s.offset + Math.max(1, s.len))}
+                >
+                  {s.identifier}@{hexN(s.offset)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 const SECTIONS: { id: Section; title: string }[] = [
   { id: "overview", title: "Обзор" },
   { id: "map", title: "Карта" },
   { id: "plot", title: "График" },
   { id: "image", title: "Картинка" },
   { id: "embedded", title: "Вложения" },
+  { id: "yara", title: "YARA" },
 ];
 
 export function AnalysisPanel({ tab }: { tab: Tab }) {
@@ -775,6 +867,7 @@ export function AnalysisPanel({ tab }: { tab: Tab }) {
       {section === "plot" && <PlotSection tab={tab} />}
       {section === "image" && <ImageSection tab={tab} />}
       {section === "embedded" && <EmbeddedSection tab={tab} />}
+      {section === "yara" && <YaraSection tab={tab} />}
     </>
   );
 }

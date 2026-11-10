@@ -201,6 +201,7 @@ pub fn run() {
             commands::re::re_tool_spawn,
             desktop::app_info,
             desktop::app_print,
+            commands::yara::yara_scan,
             commands::files::files_search,
             commands::files::file_split,
             commands::files::files_concat,

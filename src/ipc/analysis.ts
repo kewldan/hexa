@@ -136,7 +136,19 @@ function toRgba(buf: ArrayBuffer): Rgba {
   };
 }
 
+export interface YaraReport {
+  matches: {
+    rule: string;
+    namespace: string;
+    tags: string[];
+    strings: { identifier: string; offset: number; len: number }[];
+  }[];
+  warnings: string[];
+}
+
 export const anl = {
+  yara: (id: number, rules: string, start: number, end: number) =>
+    invoke<YaraReport>("yara_scan", { id, rules, start, end }),
   overview: (id: number, start: number, end: number, points = 512) =>
     invoke<Overview>("anl_overview", { id, start, end, points }),
   digraph: (id: number, start: number, end: number, size = 256) =>

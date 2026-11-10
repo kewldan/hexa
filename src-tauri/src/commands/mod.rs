@@ -9,3 +9,4 @@ pub mod script;
 pub mod sources;
 pub mod tools;
 pub mod transform;
+pub mod yara;
