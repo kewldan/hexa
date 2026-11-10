@@ -59,6 +59,20 @@ jobs:
         env:
           PROPTEST_CASES: 512
 
+  crates:
+    name: Crate tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Diff, transform, analysis, RE, templates, scripting, disks, processes, network, CLI
+        run: cargo test --workspace --exclude hexa-core --exclude hexa --locked
+
   fuzz:
     name: Fuzz (short run)
     runs-on: ubuntu-latest
