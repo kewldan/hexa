@@ -4,8 +4,19 @@
   border-radius: 50%;
   flex: none;
 }
-.anl-tabs {
+.seg.anl-tabs {
   margin: 0 4px 8px;
+  display: flex;
+  flex-wrap: wrap;
+}
+.seg.anl-tabs button {
+  flex: 1 0 auto;
+}
+.anl-kv {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.anl-kv > b {
+  text-align: right;
 }
 .anl-tabs button.on {
   color: var(--ink);

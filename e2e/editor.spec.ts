@@ -157,7 +157,7 @@ test("two tabs are compared side by side", async ({ page }) => {
   await expect(page.locator(".diff-bar")).toContainText("1 вставлено");
   await expect(page.locator(".editor-col")).toHaveCount(2);
   await page.keyboard.press("F7");
-  await expect(page.locator(".diff-bar")).toContainText("#1/1");
+  await expect(page.locator(".diff-bar")).toContainText("1/1");
 });
 
 test("analysis and strings panels show results", async ({ page }) => {

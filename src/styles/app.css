@@ -691,6 +691,8 @@ svg.i {
   min-width: 0;
 }
 .chip {
+  white-space: nowrap;
+  flex: none;
   height: 22px;
   padding: 0 8px;
   border-radius: 6px;
@@ -2336,6 +2338,13 @@ textarea.inp {
 }
 .diff-bar .pct {
   font-variant-numeric: tabular-nums;
+}
+.diff-bar > *,
+.diff-bar .note {
+  white-space: nowrap;
+}
+.diff-bar {
+  overflow: hidden;
 }
 .diff-k {
   display: inline-flex;

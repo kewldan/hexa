@@ -337,7 +337,7 @@ function FileSection({
   };
   return (
     <>
-      <div className="kv" style={{ padding: "0 6px" }}>
+      <div className="kv anl-kv" style={{ padding: "0 6px" }}>
         <span>Формат</span>
         <b>
           {info.format.toUpperCase()} · {info.bits} бит · {info.endian}

@@ -31,9 +31,10 @@ export function InspectorAsm({ tab }: { tab: Tab }) {
     };
   }, [tab.id, tab.cursor, tab.info.version, arch]);
   return (
-    <div className="ir" style={{ gridTemplateColumns: "92px minmax(0,1fr)" }}>
+    <div className="ir" style={{ gridTemplateColumns: "120px minmax(0,1fr)" }}>
       <select
         className="sel-input ik"
+        style={{ width: "100%" }}
         aria-label="Архитектура инструкции"
         value={arch}
         onChange={(e) => set({ inspectorArch: e.target.value })}

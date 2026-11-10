@@ -46,9 +46,11 @@ export function DiffBar() {
       ) : null}
       <div className="grow" />
       {cur && (
-        <span className="note mono">
-          #{d.current + 1}/{d.result?.regions.length} · A 0x{hexN(cur.a.start)}+{cur.a.len} · B 0x
-          {hexN(cur.b.start)}+{cur.b.len}
+        <span
+          className="note mono"
+          title={`A 0x${hexN(cur.a.start)}+${cur.a.len} · B 0x${hexN(cur.b.start)}+${cur.b.len}`}
+        >
+          {d.current + 1}/{d.result?.regions.length}
         </span>
       )}
       <button

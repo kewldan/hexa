@@ -247,7 +247,7 @@ function OverviewSection({ tab }: { tab: Tab }) {
             onMouseLeave={() => setHover(null)}
           />
           {h && (
-            <div className="kv" style={{ padding: "0 6px" }}>
+            <div className="kv anl-kv" style={{ padding: "0 6px" }}>
               {hover !== null && (
                 <>
                   <span>Байт 0x{hexN(hover, 2)}</span>
@@ -509,7 +509,7 @@ function PlotSection({ tab }: { tab: Tab }) {
         aria-label="График значений"
       />
       {data && (
-        <div className="kv" style={{ padding: "0 6px" }}>
+        <div className="kv anl-kv" style={{ padding: "0 6px" }}>
           <span>Значений</span>
           <b>{data.count.toLocaleString("ru")}</b>
           <span>Мин · макс</span>

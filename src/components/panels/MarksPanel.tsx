@@ -94,7 +94,7 @@ export function MarksPanel({ tab }: { tab: Tab }) {
           <Icon.plus /> Закладка
         </button>
       </div>
-      <div style={{ display: "flex", gap: 6, padding: "0 4px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
         <button type="button" className="chip" onClick={() => A.addMark("label")}>
           Метка
         </button>

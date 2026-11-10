@@ -31,15 +31,18 @@ export function DiffPanel({ tab }: { tab: Tab }) {
           <Icon.split /> Сравнить…
         </button>
       </div>
-      <div style={{ display: "flex", gap: 6, padding: "0 4px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 4px" }}>
+        <button type="button" className="chip" onClick={() => openDialog({ kind: "nway" })}>
+          Несколько
+        </button>
         <button type="button" className="chip" onClick={() => openDialog({ kind: "merge3" })}>
-          Слияние 3-х
+          Слияние
         </button>
         <button type="button" className="chip" onClick={() => openDialog({ kind: "patchCreate" })}>
-          Создать патч
+          Патч…
         </button>
         <button type="button" className="chip" onClick={() => openDialog({ kind: "patchApply" })}>
-          Применить патч
+          Применить патч…
         </button>
       </div>
       {!active || !d.result ? (
