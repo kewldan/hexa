@@ -10,7 +10,7 @@ rust-version.workspace = true
 publish = false
 
 [[bin]]
-name = "hexa"
+name = "hexa-cli"
 path = "src/main.rs"
 
 [lints]
