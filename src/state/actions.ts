@@ -114,7 +114,7 @@ export function applyResult(id: number, r: EditResult, cursor?: number, anchor?:
 export async function refreshMarks(id: number) {
   try {
     const marks = await api.marksList(id);
-    patch(id, { marks });
+    patch(id, { marks: Array.isArray(marks) ? marks : [] });
   } catch {
     /* document closed */
   }

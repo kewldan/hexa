@@ -98,14 +98,14 @@ test("insert mode inserts and delete removes", async ({ page }) => {
 });
 
 test("panels can be moved to the other side", async ({ page }) => {
-  const tab = page.locator('[data-side="left"] .side-tab', { hasText: "Хэши" });
+  const tab = page.locator('[data-side="left"] .side-tab[aria-label="Хэши"]');
   const target = page.locator('[data-side="right"]');
   await tab.hover();
   await page.mouse.down();
   const box = (await target.boundingBox())!;
   await page.mouse.move(box.x + 20, box.y + 10, { steps: 8 });
   await page.mouse.up();
-  await expect(page.locator('[data-side="right"] .side-tab', { hasText: "Хэши" })).toBeVisible();
+  await expect(page.locator('[data-side="right"] .side-tab[aria-label="Хэши"]')).toBeVisible();
 });
 
 test("settings switch the theme and persist", async ({ page }) => {

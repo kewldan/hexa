@@ -26,6 +26,9 @@ interface Change {
 const docs = new Map<number, MockDoc>();
 let nextId = 1;
 let clip: Uint8Array | null = null;
+// biome-ignore lint/suspicious/noExplicitAny: test double
+let marks: any[] = [];
+let nextMark = 1;
 let clipText: string | null = null;
 
 function sample(): Uint8Array {
@@ -512,6 +515,34 @@ export function installMock() {
             inserted: clip.length,
           });
         }
+        case "marks_list":
+          return marks.filter((m) => m.doc === a.id).map(({ doc: _, ...m }) => m);
+        case "marks_add": {
+          const id = nextMark++;
+          marks.push({ ...a.mark, id, doc: a.id });
+          return id;
+        }
+        case "marks_update": {
+          const i = marks.findIndex((m) => m.id === a.mark.id);
+          if (i >= 0) marks[i] = { ...a.mark, doc: a.id };
+          return i >= 0;
+        }
+        case "marks_remove": {
+          const n = marks.length;
+          marks = marks.filter((m) => m.id !== a.mark);
+          return n !== marks.length;
+        }
+        case "marks_set":
+          marks = marks
+            .filter((m) => m.doc !== a.id)
+            .concat(a.marks.map((m: object) => ({ ...m, id: nextMark++, doc: a.id })));
+          return marks.filter((m) => m.doc === a.id);
+        case "inspect_ext":
+          return [];
+        case "read_text_file":
+          return "";
+        case "write_text_file":
+          return null;
         case "clip_paste_auto": {
           // The mock has no system clipboard formats: same-window copies only.
           const d = doc();

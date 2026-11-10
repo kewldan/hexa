@@ -126,6 +126,7 @@ export function Sidebar({ side, tab }: { side: "left" | "right"; tab: Tab }) {
               key={id}
               role="tab"
               aria-selected={id === active}
+              aria-label={TITLES[id]}
               className={`side-tab${id === active ? " on" : ""}`}
               title="Перетащите на другую панель, чтобы переместить"
               onPointerDown={(e) =>
