@@ -13,9 +13,11 @@ import { evalExpr } from "../../lib/expr";
 import { fmtSize, groupDec, hexN, parseHexBytes, relTime } from "../../lib/format";
 import { renderMarkdown } from "../../lib/markdown";
 import * as A from "../../state/actions";
+import { startDiff } from "../../state/diff";
 import { selection, selectionOrByte, useActiveTab, useTabs } from "../../state/tabs";
 import { closeDialog, type Dialog, toast, useUi } from "../../state/ui";
 import { MARK_COLORS } from "../panels/MarksPanel";
+import { Merge3Dialog, PatchApplyDialog, PatchCreateDialog } from "./CompareDialogs";
 import { SettingsDialog } from "./Settings";
 
 export function Modal({
@@ -802,13 +804,13 @@ function ReplacePreviewDialog({ plan }: { plan: Planned[] }) {
   );
 }
 
-function PickTabDialog() {
+function PickTabDialog({ mode }: { mode: "side" | "diff" }) {
   const tabs = useTabs((st) => st.tabs);
   const cur = useActiveTab();
   const others = tabs.filter((t) => t.id !== cur?.id);
   return (
     <Modal
-      title="Открыть рядом"
+      title={mode === "diff" ? "Сравнить с…" : "Открыть рядом"}
       footer={
         <button type="button" className="btn" onClick={closeDialog}>
           Отмена
@@ -816,7 +818,9 @@ function PickTabDialog() {
       }
     >
       {others.length === 0 ? (
-        <div className="note">Откройте второй файл, чтобы показать его рядом.</div>
+        <div className="note">
+          Откройте второй файл, чтобы {mode === "diff" ? "сравнить с ним" : "показать его рядом"}.
+        </div>
       ) : (
         <div className="opt-list">
           {others.map((t) => (
@@ -826,7 +830,9 @@ function PickTabDialog() {
               className="opt"
               onClick={() => {
                 closeDialog();
-                if (cur) useUi.getState().set({ compare: { a: cur.id, b: t.id, sync: true } });
+                if (!cur) return;
+                if (mode === "diff") void startDiff(cur.id, t.id);
+                else useUi.getState().set({ compare: { a: cur.id, b: t.id, sync: true } });
               }}
             >
               <span />
@@ -1227,7 +1233,13 @@ export function Dialogs() {
     case "replacePreview":
       return <ReplacePreviewDialog plan={d.plan} />;
     case "pickTab":
-      return <PickTabDialog />;
+      return <PickTabDialog mode={d.mode ?? "side"} />;
+    case "merge3":
+      return <Merge3Dialog />;
+    case "patchCreate":
+      return <PatchCreateDialog />;
+    case "patchApply":
+      return <PatchApplyDialog path={d.path} />;
     case "mark":
       return <MarkDialog mark={d.mark} />;
     case "moveBlock":

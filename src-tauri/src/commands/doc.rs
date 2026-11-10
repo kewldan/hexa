@@ -133,6 +133,10 @@ pub(crate) fn mutate(
     })
 }
 
+pub(crate) fn opened_doc(app: &AppHandle, state: &AppState, doc: Document) -> DocInfo {
+    opened(app, state, doc)
+}
+
 fn opened(app: &AppHandle, state: &AppState, doc: Document) -> DocInfo {
     let path = doc.path().map(PathBuf::from);
     let entry = state.add(doc);

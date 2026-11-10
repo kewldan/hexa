@@ -1,8 +1,21 @@
 // Non-modal banners instead of dialogs (UI-07, FILE-05, FILE-06).
 import { useState } from "react";
+import { api } from "../ipc/api";
 import * as A from "../state/actions";
+import { startDiff } from "../state/diff";
 import { type Tab, useTabs } from "../state/tabs";
 import { Icon } from "./icons";
+
+async function compareWithDisk(tab: Tab) {
+  if (!tab.info.path) return;
+  try {
+    const info = await A.adopt(await api.open(tab.info.path, { mode: "readOnly" }));
+    useTabs.getState().activate(tab.id);
+    await startDiff(tab.id, info.id);
+  } catch (e) {
+    A.report(e);
+  }
+}
 
 export function Banner({ tab }: { tab: Tab }) {
   const [closing, setClosing] = useState(false);
@@ -29,6 +42,16 @@ export function Banner({ tab }: { tab: Tab }) {
           <button type="button" className="btn" onClick={() => dismiss(() => A.keepMine(tab.id))}>
             Оставить моё
           </button>
+          {tab.info.path && (
+            <button
+              type="button"
+              className="btn"
+              title="Открыть версию с диска рядом и показать отличия"
+              onClick={() => dismiss(() => compareWithDisk(tab))}
+            >
+              Сравнить
+            </button>
+          )}
           {!tab.info.modified && (
             <button
               type="button"

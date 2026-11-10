@@ -1,6 +1,7 @@
 // Command registry: every action reachable from keys, palette and menus (UI-02, UI-03).
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as A from "../state/actions";
+import * as D from "../state/diff";
 import { type KeymapPreset, settings, useSettings } from "../state/settings";
 import { activeTab, hasSelection, selectionOrByte } from "../state/tabs";
 import { openDialog, toast, useUi } from "../state/ui";
@@ -890,6 +891,68 @@ export const COMMANDS: Command[] = [
   },
   { id: "view.unfoldAll", title: "Развернуть всё", group: "Вид", doc: true, run: A.unfoldAll },
   {
+    id: "diff.compare",
+    title: "Сравнить с другой вкладкой…",
+    group: "Сравнение",
+    doc: true,
+    run: () => openDialog({ kind: "pickTab", mode: "diff" }),
+  },
+  { id: "diff.next", title: "Следующее отличие", group: "Сравнение", run: () => D.nextRegion(1) },
+  { id: "diff.prev", title: "Предыдущее отличие", group: "Сравнение", run: () => D.nextRegion(-1) },
+  {
+    id: "diff.takeLeft",
+    title: "Взять отличие справа",
+    group: "Сравнение",
+    run: () => D.applyRegion(true),
+  },
+  {
+    id: "diff.giveRight",
+    title: "Отдать отличие направо",
+    group: "Сравнение",
+    run: () => D.applyRegion(false),
+  },
+  {
+    id: "diff.takeAll",
+    title: "Взять все отличия справа",
+    group: "Сравнение",
+    run: () => D.applyRegion(true, true),
+  },
+  {
+    id: "diff.export",
+    title: "Экспорт отчёта о сравнении…",
+    group: "Сравнение",
+    run: D.exportDiff,
+  },
+  {
+    id: "diff.close",
+    title: "Закончить сравнение",
+    group: "Сравнение",
+    run: () => {
+      D.stopDiff();
+      ui().set({ compare: null });
+    },
+  },
+  {
+    id: "diff.merge3",
+    title: "Трёхстороннее слияние…",
+    group: "Сравнение",
+    run: () => openDialog({ kind: "merge3" }),
+  },
+  {
+    id: "patch.create",
+    title: "Создать патч (IPS/UPS/BPS/VCDIFF/bsdiff)…",
+    group: "Сравнение",
+    run: () => openDialog({ kind: "patchCreate" }),
+  },
+  {
+    id: "patch.apply",
+    title: "Применить патч…",
+    group: "Сравнение",
+    doc: true,
+    run: () => openDialog({ kind: "patchApply" }),
+  },
+  { id: "view.diff", title: "Панель сравнения", group: "Вид", run: () => showPanel("diff") },
+  {
     id: "help.about",
     title: "О программе",
     group: "Справка",
@@ -1031,6 +1094,8 @@ const BASE: Keymap = {
   "view.zoomReset": ["Mod+0"],
   "view.settings": ["Mod+,"],
   "marks.add": ["Mod+D"],
+  "diff.next": ["F7"],
+  "diff.prev": ["Shift+F7"],
   "view.foldSelection": ["Alt+Mod+["],
   "view.unfoldAll": ["Alt+Mod+]"],
   "view.split2": ["Mod+\\"],

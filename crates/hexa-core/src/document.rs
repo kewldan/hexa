@@ -206,6 +206,26 @@ impl Document {
         Ok(doc)
     }
 
+    /// A new unsaved buffer holding `tree` (merge results, applied patches,
+    /// extracted streams). Bytes are referenced, not copied.
+    pub fn from_tree(name: impl Into<String>, tree: Tree) -> Self {
+        let mut doc = Self::new_empty();
+        doc.name = name.into();
+        if !tree.is_empty() {
+            let len = tree.len();
+            doc.history.commit(
+                tree,
+                "New",
+                Change {
+                    start: 0,
+                    removed: 0,
+                    inserted: len,
+                },
+            );
+        }
+        doc
+    }
+
     /// Opens a file lazily (FILE-02, FILE-04, FILE-05, FILE-08).
     pub fn open(path: &Path, opts: &OpenOptions) -> Result<Self> {
         let meta = std::fs::metadata(path)?;

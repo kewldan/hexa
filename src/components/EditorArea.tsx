@@ -2,8 +2,10 @@
 // by side with synchronised scrolling (DISP-21, DIFF-06).
 import { useEffect } from "react";
 import { HexGrid, linkedScroll } from "../grid/HexGrid";
+import { useDiff } from "../state/diff";
 import { type Tab, useTabs } from "../state/tabs";
 import { useUi } from "../state/ui";
+import { DiffBar } from "./DiffBar";
 import { Icon } from "./icons";
 
 function PaneHeader({ tab, pane }: { tab: Tab; pane: number }) {
@@ -125,20 +127,33 @@ export function EditorArea({ tab }: { tab: Tab }) {
     </div>
   );
 
+  const diffOn = useDiff((d) => d.a !== null && (d.a === tab.id || d.b === tab.id));
   return (
-    <div className="editor-area">
-      {column(tab, true)}
-      {other && column(other, false)}
-      {tab.panes.length > 0 && (
-        <button
-          type="button"
-          className={`pane-sync tog${tab.paneSync ? " on" : ""}`}
-          title="Синхронная прокрутка панелей"
-          onClick={() => useTabs.getState().update(tab.id, (t) => ({ paneSync: !t.paneSync }))}
-        >
-          ⇅ синхронно
-        </button>
-      )}
+    <div className="editor-wrap">
+      {diffOn && other && <DiffBar />}
+      <div className="editor-area">
+        {other && compare?.b === tab.id ? (
+          <>
+            {column(other, false)}
+            {column(tab, true)}
+          </>
+        ) : (
+          <>
+            {column(tab, true)}
+            {other && column(other, false)}
+          </>
+        )}
+        {tab.panes.length > 0 && (
+          <button
+            type="button"
+            className={`pane-sync tog${tab.paneSync ? " on" : ""}`}
+            title="Синхронная прокрутка панелей"
+            onClick={() => useTabs.getState().update(tab.id, (t) => ({ paneSync: !t.paneSync }))}
+          >
+            ⇅ синхронно
+          </button>
+        )}
+      </div>
     </div>
   );
 }

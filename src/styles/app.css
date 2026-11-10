@@ -2321,3 +2321,149 @@ textarea.inp {
   background: var(--pop);
   box-shadow: var(--shadow);
 }
+.editor-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.diff-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  animation: fadeUp 0.3s var(--ease) both;
+}
+.diff-bar .pct {
+  font-variant-numeric: tabular-nums;
+}
+.diff-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.diff-k i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.diff-bar .prog {
+  display: inline-block;
+  width: 80px;
+  height: 3px;
+  margin-left: 8px;
+  vertical-align: middle;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--acc) var(--p), var(--line) var(--p));
+}
+.kv {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 6px 12px;
+  font-size: 12.5px;
+  margin: 4px 0 10px;
+}
+.kv > span {
+  color: var(--muted);
+}
+.kv > b {
+  font-weight: 500;
+  user-select: text;
+}
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  margin: 6px 0;
+}
+.xf-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+.xf-step {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card, var(--pop));
+  animation: fadeUp 0.25s var(--ease) both;
+  animation-delay: var(--delay, 0s);
+}
+.xf-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 8px;
+  font-size: 12.5px;
+}
+.xf-n {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--acc) 15%, transparent);
+  color: var(--acc);
+}
+.xf-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.xf-f {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+.xf-f .inp,
+.xf-f .sel-input {
+  width: 100%;
+}
+.xf-prev {
+  margin: 8px 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.xf-ph {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+.xf-hex {
+  margin: 0;
+  padding: 6px 8px;
+  font: 11px / 1.45 var(--mono);
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre;
+  user-select: text;
+}
+.xf-err {
+  padding: 8px;
+  color: var(--danger, #dc2626);
+  font-size: 12px;
+}
+.xf-actions,
+.xf-saved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 4px 0;
+}
+.xf-xor {
+  padding: 8px 4px;
+}

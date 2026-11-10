@@ -13,7 +13,10 @@ export type Dialog =
   | { kind: "props" }
   | { kind: "followPointer" }
   | { kind: "moveBlock" }
-  | { kind: "pickTab" }
+  | { kind: "pickTab"; mode?: "side" | "diff" }
+  | { kind: "merge3" }
+  | { kind: "patchCreate" }
+  | { kind: "patchApply"; path?: string }
   | { kind: "replacePreview"; plan: import("../ipc/api").Planned[] }
   | { kind: "mark"; mark: import("../ipc/api").Mark }
   | { kind: "confirm"; title: string; body: string; actions: ConfirmAction[] }

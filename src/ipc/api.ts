@@ -339,6 +339,102 @@ function progressChannel(onProgress?: (p: SaveProgress) => void): Channel<SavePr
   return ch;
 }
 
+export interface ByteRange {
+  start: number;
+  end: number;
+}
+
+// ----- comparison and patches (DIFF, IO-05) -----
+
+export interface Span {
+  start: number;
+  len: number;
+}
+export type RegionKind = "equal" | "changed" | "inserted" | "deleted";
+export interface DiffRegion {
+  a: Span;
+  b: Span;
+  kind: RegionKind;
+}
+export interface KindStats {
+  count: number;
+  bytesA: number;
+  bytesB: number;
+}
+export interface DiffStats {
+  lenA: number;
+  lenB: number;
+  equalBytes: number;
+  matchPercent: number;
+  equal: KindStats;
+  changed: KindStats;
+  inserted: KindStats;
+  deleted: KindStats;
+  differences: number;
+}
+export interface DiffResult {
+  regions: DiffRegion[];
+  stats: DiffStats;
+  truncated: boolean;
+}
+export interface DiffOptions {
+  mode?: "bytewise" | "shiftAware";
+  includeEqual?: boolean;
+  mergeGap?: number;
+  maxRegions?: number | null;
+}
+export type DiffEvent =
+  | { type: "progress"; done: number; total: number }
+  | { type: "done"; result: DiffResult }
+  | { type: "error"; error: CmdError };
+export type PatchFormat = "ips" | "ups" | "bps" | "vcdiff" | "bsdiff";
+export interface PatchInfo {
+  format: PatchFormat | null;
+  sourceSize: number | null;
+  targetSize: number | null;
+  sourceCrc32: number | null;
+  targetCrc32: number | null;
+  patchChecksumOk: boolean | null;
+  metadata: string | null;
+}
+export interface MergeConflict {
+  base: Span;
+  ours: Span;
+  theirs: Span;
+  output: Span;
+}
+
+// ----- transformations (XFRM) -----
+
+/** One step of a recipe; mirrors `hexa_transform::Step` (tagged by `kind`). */
+export type Step = { kind: string } & Record<string, unknown>;
+export interface Recipe {
+  name?: string;
+  steps: Step[];
+}
+export interface XfrmPreview {
+  output: number[];
+  totalLen: number | null;
+  truncated: boolean;
+  inputTruncated: boolean;
+}
+export interface XorCandidate {
+  key: string;
+  score: number;
+  method: "text" | "zeroBytes";
+  printableRatio: number;
+}
+export interface XorGuess {
+  single: XorCandidate[];
+  repeating: XorCandidate[];
+  sizes: { keySize: number; distance: number }[];
+}
+export interface GraphOutput {
+  name: string;
+  preview: number[];
+  len: number;
+}
+
 export const api = {
   open: (path: string, opts?: OpenOpts) => invoke<DocInfo>("doc_open", { path, opts }),
   create: (kind: NewDoc) => invoke<DocInfo>("doc_new", { kind }),
@@ -496,4 +592,56 @@ export const api = {
   recoveryList: () => invoke<RecoveryItem[]>("recovery_list"),
   recoveryRestore: (key: string) => invoke<DocInfo>("recovery_restore", { key }),
   recoveryDiscard: (key: string) => invoke<void>("recovery_discard", { key }),
+
+  diffRun: (
+    a: number,
+    b: number,
+    opts: DiffOptions,
+    ranges: { a?: ByteRange; b?: ByteRange },
+    onEvent: (e: DiffEvent) => void,
+  ) => {
+    const channel = new Channel<DiffEvent>();
+    channel.onmessage = onEvent;
+    return invoke<number>("diff_run", {
+      a,
+      b,
+      opts,
+      rangeA: ranges.a ?? null,
+      rangeB: ranges.b ?? null,
+      channel,
+    });
+  },
+  diffExport: (result: DiffResult, format: "text" | "csv" | "json", path: string | null) =>
+    invoke<string>("diff_export", { result, format, path }),
+  diffApply: (to: number, from: number, regions: DiffRegion[]) =>
+    invoke<EditResult>("diff_apply", { to, from, regions }),
+  merge3: (base: number, ours: number, theirs: number, conflict: "ours" | "theirs" | "base") =>
+    invoke<{ info: DocInfo; result: { conflicts: MergeConflict[]; len: number } }>("merge3", {
+      base,
+      ours,
+      theirs,
+      conflict,
+    }),
+  patchInspect: (path: string) => invoke<PatchInfo>("patch_inspect", { path }),
+  patchCreate: (source: number, target: number, format: PatchFormat, path: string) =>
+    invoke<number>("patch_create", { source, target, format, path, opts: null }),
+  patchApply: (id: number, path: string, format: PatchFormat | null, verify: boolean) =>
+    invoke<{ info: DocInfo; format: PatchFormat; reversed: boolean }>("patch_apply", {
+      id,
+      path,
+      format,
+      verify,
+    }),
+
+  xfrmPreview: (id: number, r: ByteRange, recipe: Recipe, maxOut = 4096) =>
+    invoke<XfrmPreview>("xfrm_preview", { id, start: r.start, end: r.end, recipe, maxOut }),
+  xfrmApply: (id: number, r: ByteRange, recipe: Recipe) =>
+    invoke<EditResult>("xfrm_apply", { id, start: r.start, end: r.end, recipe }),
+  xfrmToNew: (id: number, r: ByteRange, recipe: Recipe) =>
+    invoke<DocInfo>("xfrm_to_new", { id, start: r.start, end: r.end, recipe }),
+  xfrmInvert: (recipe: Recipe) => invoke<Recipe>("xfrm_invert", { recipe }),
+  xfrmGraph: (id: number, r: ByteRange, graph: unknown) =>
+    invoke<GraphOutput[]>("xfrm_graph", { id, start: r.start, end: r.end, graph }),
+  xfrmXorGuess: (id: number, r: ByteRange, maxKeyLen = 32) =>
+    invoke<XorGuess>("xfrm_xor_guess", { id, start: r.start, end: r.end, maxKeyLen }),
 };

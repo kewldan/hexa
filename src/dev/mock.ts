@@ -515,6 +515,86 @@ export function installMock() {
             inserted: clip.length,
           });
         }
+        case "diff_run": {
+          const da = docs.get(a.a);
+          const db = docs.get(a.b);
+          if (!da || !db) throw { kind: "notFound", message: "no doc" };
+          const regions = mockDiff(da.data, db.data);
+          const kinds = { equal: 0, changed: 0, inserted: 0, deleted: 0 } as Record<string, number>;
+          for (const r of regions) kinds[r.kind]++;
+          const diffBytes = regions.reduce((n, r) => n + Math.max(r.a.len, r.b.len), 0);
+          const total = Math.max(da.data.length, db.data.length) || 1;
+          const ks = (k: string) => ({ count: kinds[k], bytesA: 0, bytesB: 0 });
+          setTimeout(
+            () =>
+              a.channel.onmessage({
+                type: "done",
+                result: {
+                  regions,
+                  truncated: false,
+                  stats: {
+                    lenA: da.data.length,
+                    lenB: db.data.length,
+                    equalBytes: total - diffBytes,
+                    matchPercent: (100 * (total - diffBytes)) / total,
+                    equal: ks("equal"),
+                    changed: ks("changed"),
+                    inserted: ks("inserted"),
+                    deleted: ks("deleted"),
+                    differences: diffBytes,
+                  },
+                },
+              }),
+            10,
+          );
+          return 2;
+        }
+        case "diff_apply": {
+          const to = docs.get(a.to);
+          const from = docs.get(a.from);
+          if (!to || !from) throw { kind: "notFound", message: "no doc" };
+          let data = to.data;
+          const rs = [...a.regions].sort((x: MockRegion, y: MockRegion) => y.a.start - x.a.start);
+          for (const r of rs)
+            data = splice(
+              data,
+              r.a.start,
+              r.a.start + r.a.len,
+              from.data.slice(r.b.start, r.b.start + r.b.len),
+            );
+          return commit(to, data, "Merge regions", {
+            start: 0,
+            removed: to.data.length,
+            inserted: data.length,
+          });
+        }
+        case "xfrm_preview": {
+          const d = doc();
+          const out = mockTransform(d.data.slice(a.start, a.end), a.recipe.steps);
+          return {
+            output: [...out.slice(0, a.maxOut)],
+            totalLen: out.length,
+            truncated: out.length > a.maxOut,
+            inputTruncated: false,
+          };
+        }
+        case "xfrm_apply": {
+          const d = doc();
+          const out = mockTransform(d.data.slice(a.start, a.end), a.recipe.steps);
+          return commit(d, splice(d.data, a.start, a.end, out), "Transform", {
+            start: a.start,
+            removed: a.end - a.start,
+            inserted: out.length,
+          });
+        }
+        case "xfrm_invert":
+          return { steps: [...a.recipe.steps].reverse() };
+        case "xfrm_xor_guess":
+          return {
+            single: [{ key: "00", score: 0.5, method: "zeroBytes", printableRatio: 0.5 }],
+            repeating: [],
+            sizes: [],
+          };
         case "find_runs": {
           const d = doc();
           const runs: { start: number; end: number; byte: number }[] = [];
@@ -597,4 +677,51 @@ export function installMock() {
 export async function openMockSample() {
   const { openPaths } = await import("../state/actions");
   await openPaths(["/mock/sample.png"]);
+}
+
+interface MockRegion {
+  a: { start: number; len: number };
+  b: { start: number; len: number };
+  kind: string;
+}
+
+/** Byte-wise comparison: runs of differing offsets plus the longer tail. */
+function mockDiff(x: Uint8Array, y: Uint8Array): MockRegion[] {
+  const out: MockRegion[] = [];
+  const n = Math.min(x.length, y.length);
+  let i = 0;
+  while (i < n) {
+    if (x[i] === y[i]) {
+      i++;
+      continue;
+    }
+    const s = i;
+    while (i < n && x[i] !== y[i]) i++;
+    out.push({ a: { start: s, len: i - s }, b: { start: s, len: i - s }, kind: "changed" });
+  }
+  if (x.length > n)
+    out.push({ a: { start: n, len: x.length - n }, b: { start: n, len: 0 }, kind: "deleted" });
+  if (y.length > n)
+    out.push({ a: { start: n, len: 0 }, b: { start: n, len: y.length - n }, kind: "inserted" });
+  return out;
+}
+
+/** The few recipe steps the browser mock understands. */
+function mockTransform(
+  input: Uint8Array,
+  steps: { kind: string; [k: string]: unknown }[],
+): Uint8Array {
+  let data = Uint8Array.from(input);
+  for (const st of steps) {
+    if (st.kind === "not") data = data.map((b) => ~b & 0xff);
+    else if (st.kind === "reverse") data = data.reverse();
+    else if (st.kind === "xorKey") {
+      const key = (String(st.key).match(/../g) ?? ["00"]).map((h) => Number.parseInt(h, 16));
+      data = data.map((b, i) => b ^ key[i % key.length]);
+    } else if (st.kind === "bitwise" && st.op === "xor") {
+      const v = Number(st.operand) & 0xff;
+      data = data.map((b) => b ^ v);
+    } else throw { kind: "transform", message: `mock: ${st.kind} is not supported` };
+  }
+  return data;
 }

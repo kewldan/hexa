@@ -131,3 +131,31 @@ test("copy and paste a selection", async ({ page }) => {
   await expect.poll(async () => (await info()).len).toBe(len0 + 3);
   await expect.poll(() => bytesAt(page, 0x12, 3)).toBe(src);
 });
+
+test("transform panel applies a recipe to the selection", async ({ page }) => {
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowRight");
+  const before = await bytesAt(page, 0, 3);
+  await page.locator('.side-tab[aria-label="Преобразования"]').click();
+  await page.getByRole("combobox", { name: "Добавить шаг" }).selectOption("not");
+  await expect(page.locator(".xf-hex")).toBeVisible();
+  await page.getByRole("button", { name: "Заменить выделение" }).click();
+  const inverted = before
+    .split(" ")
+    .map((h) => (~Number.parseInt(h, 16) & 0xff).toString(16).padStart(2, "0"))
+    .join(" ");
+  await expect.poll(() => bytesAt(page, 0, 3)).toBe(inverted);
+});
+
+test("two tabs are compared side by side", async ({ page }) => {
+  await page.keyboard.press(`${mod}+n`);
+  await page.getByRole("button", { name: "Создать" }).click();
+  await expect(page.locator(".tab")).toHaveCount(2);
+  await page.locator('.side-tab[aria-label="Сравнение"]').click();
+  await page.getByRole("button", { name: "Сравнить…" }).click();
+  await page.locator(".dlg .opt").first().click();
+  await expect(page.locator(".diff-bar")).toContainText("1 вставлено");
+  await expect(page.locator(".editor-col")).toHaveCount(2);
+  await page.keyboard.press("F7");
+  await expect(page.locator(".diff-bar")).toContainText("#1/1");
+});

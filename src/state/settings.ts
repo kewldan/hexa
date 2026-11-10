@@ -9,6 +9,7 @@ export type Column = "offset" | "hex" | "text";
 export type NonPrintable = "dot" | "pictures" | "blank";
 export type PanelId =
   | "history"
+  | "diff"
   | "hashes"
   | "results"
   | "inspector"
@@ -93,6 +94,8 @@ export interface Settings {
   /** Loaded .tbl character tables by name (DISP-12). */
   tblTables: Record<string, string>;
   savedQueries: { label: string; kind: string; text: string }[];
+  /** Saved transformation recipes (XFRM-10). */
+  recipes: import("../ipc/api").Recipe[];
   queryHistory: string[];
   /** Named settings snapshots (UI-11). */
   profiles: Record<string, Partial<Settings>>;
@@ -108,7 +111,7 @@ export interface Settings {
 }
 
 export const DEFAULT_LAYOUT: Layout = {
-  left: ["structure", "marks", "history", "hashes", "results"],
+  left: ["structure", "marks", "history", "hashes", "results", "diff"],
   right: ["inspector", "analysis", "transform", "disasm", "strings", "console"],
   leftOpen: true,
   rightOpen: true,
@@ -169,6 +172,7 @@ export const DEFAULTS: Settings = {
   layers: { changes: true, search: true, marks: true, structure: true, diff: true },
   tblTables: {},
   savedQueries: [],
+  recipes: [],
   queryHistory: [],
   profiles: {},
   checkUpdates: false,

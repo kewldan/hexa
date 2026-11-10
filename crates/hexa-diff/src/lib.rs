@@ -321,7 +321,7 @@ mod tests {
             ..DiffOptions::default()
         };
         let r = diff_ranges(&a, 4..9, &b, 2..7, &opts, &Cancel::new(), &noprog).unwrap();
-        assert!(r.regions.is_empty());
+        assert_eq!(r.regions, vec![]);
         assert!((r.stats.match_percent - 100.0).abs() < 1e-9);
 
         let b2 = tree(b"zzHEXLOzz");

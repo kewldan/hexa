@@ -6,6 +6,7 @@ import type { Tab } from "../state/tabs";
 import { Icon } from "./icons";
 import { AnalysisPanel } from "./panels/AnalysisPanel";
 import { ConsolePanel } from "./panels/ConsolePanel";
+import { DiffPanel } from "./panels/DiffPanel";
 import { DisasmPanel } from "./panels/DisasmPanel";
 import { HashPanel } from "./panels/HashPanel";
 import { HistoryPanel } from "./panels/HistoryPanel";
@@ -20,6 +21,7 @@ export const TITLES: Record<PanelId, string> = {
   history: "История",
   hashes: "Хэши",
   results: "Поиск",
+  diff: "Сравнение",
   inspector: "Инспектор",
   marks: "Закладки",
   structure: "Структура",
@@ -34,6 +36,7 @@ const ICONS: Record<PanelId, () => React.ReactElement> = {
   history: Icon.clock,
   hashes: Icon.hash,
   results: Icon.search,
+  diff: Icon.split,
   inspector: Icon.sidebarR,
   marks: Icon.star,
   structure: Icon.layers,
@@ -48,6 +51,7 @@ const PANELS: Record<PanelId, (p: { tab: Tab }) => React.ReactElement | null> = 
   history: HistoryPanel,
   hashes: HashPanel,
   results: ResultsPanel,
+  diff: DiffPanel,
   inspector: InspectorPanel,
   marks: MarksPanel,
   structure: StructurePanel,

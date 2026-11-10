@@ -21,6 +21,8 @@ tauri-build = { version = "2.7.4", features = [] }
 [dependencies]
 clipboard-rs = { version = "0.3.5", default-features = false, features = ["wayland"] }
 hexa-core = { path = "../crates/hexa-core" }
+hexa-diff = { path = "../crates/hexa-diff" }
+hexa-transform = { path = "../crates/hexa-transform" }
 notify = "8.2.2"
 parking_lot = "0.13.0"
 serde = { version = "1.0.229", features = ["derive"] }
