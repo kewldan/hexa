@@ -86,6 +86,20 @@ pub enum Query {
         max: Option<String>,
         tolerance: Option<f64>,
     },
+    /// Consecutive typed values, e.g. "u32 = 0x10, then u16 in 1..=5" (SRCH-06).
+    Sequence { items: Vec<SeqItem> },
+}
+
+/// One element of a [`Query::Sequence`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeqItem {
+    pub ty: NumType,
+    pub big_endian: bool,
+    /// `None` = any value (wildcard of the type's width).
+    pub value: Option<String>,
+    pub max: Option<String>,
+    pub tolerance: Option<f64>,
 }
 
 /// One search hit.
@@ -107,11 +121,14 @@ pub enum Matcher {
         max_len: usize,
     },
     Numeric(Numeric),
+    Sequence(Vec<Numeric>),
 }
 
 #[derive(Debug)]
 pub struct Numeric {
     ty: NumType,
+    /// Wildcard element of a sequence: any value matches.
+    any: bool,
     endians: Vec<bool>, // true = big endian
     lo: f64,
     hi: f64,
@@ -173,6 +190,19 @@ impl Matcher {
                     .find(|&i| n.matches(&hay[i..]))
                     .map(|i| (i, w))
             }
+            Self::Sequence(items) => {
+                let w: usize = items.iter().map(|n| n.ty.width()).sum();
+                (at..(hay.len() + 1).saturating_sub(w))
+                    .find(|&i| {
+                        let mut o = i;
+                        items.iter().all(|n| {
+                            let ok = n.any || n.matches(&hay[o..]);
+                            o += n.ty.width();
+                            ok
+                        })
+                    })
+                    .map(|i| (i, w))
+            }
         }
     }
 
@@ -181,6 +211,7 @@ impl Matcher {
             Self::Literal { finder } => finder.needle().len(),
             Self::Regex { max_len, .. } => *max_len,
             Self::Numeric(n) => n.ty.width(),
+            Self::Sequence(items) => items.iter().map(|n| n.ty.width()).sum(),
         }
     }
 }
@@ -401,6 +432,42 @@ pub fn compile(q: &Query) -> Result<Matcher> {
                 max_len: REGEX_MAX_MATCH,
             })
         }
+        Query::Sequence { items } => {
+            if items.is_empty() {
+                return Err(Error::invalid("empty sequence"));
+            }
+            let mut out = Vec::with_capacity(items.len());
+            for it in items {
+                let Some(value) = it.value.as_deref().filter(|v| !v.trim().is_empty()) else {
+                    out.push(Numeric {
+                        ty: it.ty,
+                        any: true,
+                        endians: vec![it.big_endian],
+                        lo: 0.0,
+                        hi: 0.0,
+                        int_lo: 0,
+                        int_hi: 0,
+                    });
+                    continue;
+                };
+                let (lo, ilo) = parse_number(value, it.ty)?;
+                let (hi, ihi) = match it.max.as_deref() {
+                    Some(m) if !m.trim().is_empty() => parse_number(m, it.ty)?,
+                    _ => (lo, ilo),
+                };
+                let tol = it.tolerance.unwrap_or(0.0).abs();
+                out.push(Numeric {
+                    ty: it.ty,
+                    any: false,
+                    endians: vec![it.big_endian],
+                    lo: lo.min(hi) - tol,
+                    hi: hi.max(lo) + tol,
+                    int_lo: ilo.min(ihi),
+                    int_hi: ihi.max(ilo),
+                });
+            }
+            Ok(Matcher::Sequence(out))
+        }
         Query::Number {
             ty,
             endian,
@@ -455,6 +522,7 @@ pub fn compile(q: &Query) -> Result<Matcher> {
             }
             Ok(Matcher::Numeric(Numeric {
                 ty: *ty,
+                any: false,
                 endians,
                 lo: lo.min(hi) - tol,
                 hi: hi.max(lo) + tol,
@@ -832,6 +900,71 @@ mod tests {
     }
 
     #[test]
+    fn typed_sequences() {
+        let mut data = vec![0xAA];
+        data.extend(0x10u32.to_le_bytes());
+        data.extend(3u16.to_le_bytes());
+        data.extend(0x10u32.to_le_bytes());
+        data.extend(9u16.to_le_bytes());
+        let t = tree(&data);
+        let q = Query::Sequence {
+            items: vec![
+                SeqItem {
+                    ty: NumType::U32,
+                    big_endian: false,
+                    value: Some("0x10".into()),
+                    max: None,
+                    tolerance: None,
+                },
+                SeqItem {
+                    ty: NumType::U16,
+                    big_endian: false,
+                    value: Some("1".into()),
+                    max: Some("5".into()),
+                    tolerance: None,
+                },
+            ],
+        };
+        assert_eq!(all(&t, &q), [1]);
+    }
+
+    #[test]
+    fn replacements_with_captures() {
+        let t = tree(b"id=12; id=345;");
+        let m = compile(&Query::Regex {
+            pattern: r"id=(\d+)".into(),
+            unicode: false,
+        })
+        .unwrap();
+        let plan = plan_replacements(
+            &t,
+            &m,
+            Scope::whole(&t),
+            &Replacement::Template {
+                template: b"<$1>".to_vec(),
+            },
+            100,
+            &Cancel::new(),
+        )
+        .unwrap();
+        let news: Vec<_> = plan.iter().map(|p| (p.offset, p.new.clone())).collect();
+        assert_eq!(news, vec![(0, b"<12>".to_vec()), (7, b"<345>".to_vec())]);
+        // Overlapping matches are skipped.
+        let t = tree(b"AAAA");
+        let m = compile(&hex("41 41")).unwrap();
+        let plan = plan_replacements(
+            &t,
+            &m,
+            Scope::whole(&t),
+            &Replacement::Bytes { bytes: vec![0x42] },
+            100,
+            &Cancel::new(),
+        )
+        .unwrap();
+        assert_eq!(plan.iter().map(|p| p.offset).collect::<Vec<_>>(), [0, 2]);
+    }
+
+    #[test]
     fn alignment_and_scope() {
         let t = tree(&[1, 1, 1, 1, 1, 1, 1, 1]);
         let m = compile(&hex("01")).unwrap();
@@ -853,4 +986,120 @@ mod tests {
         .unwrap();
         assert_eq!(v, [2, 4, 6]);
     }
+}
+
+/// What to put in place of each match (SRCH-20, SRCH-21).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Replacement {
+    /// Fixed bytes (may differ in length from the match).
+    Bytes { bytes: Vec<u8> },
+    /// For regex queries: `$0`, `$1`…`$9` and `${name}` expand to capture
+    /// groups; other bytes are literal (`$$` is a dollar sign).
+    Template { template: Vec<u8> },
+}
+
+/// A planned replacement, shown to the user before applying (SRCH-22).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Planned {
+    pub offset: u64,
+    pub len: u64,
+    pub old: Vec<u8>,
+    pub new: Vec<u8>,
+}
+
+fn expand_template(template: &[u8], caps: &regex::bytes::Captures<'_>) -> Vec<u8> {
+    let mut out = Vec::with_capacity(template.len());
+    let mut i = 0;
+    while i < template.len() {
+        let b = template[i];
+        if b != b'$' || i + 1 >= template.len() {
+            out.push(b);
+            i += 1;
+            continue;
+        }
+        let next = template[i + 1];
+        if next == b'$' {
+            out.push(b'$');
+            i += 2;
+        } else if next.is_ascii_digit() {
+            if let Some(m) = caps.get(usize::from(next - b'0')) {
+                out.extend_from_slice(m.as_bytes());
+            }
+            i += 2;
+        } else if next == b'{' {
+            let end = template[i + 2..].iter().position(|&c| c == b'}');
+            if let Some(e) = end {
+                let name = String::from_utf8_lossy(&template[i + 2..i + 2 + e]);
+                let m = name
+                    .parse::<usize>()
+                    .ok()
+                    .and_then(|n| caps.get(n))
+                    .or_else(|| caps.name(&name));
+                if let Some(m) = m {
+                    out.extend_from_slice(m.as_bytes());
+                }
+                i += e + 3;
+            } else {
+                out.push(b);
+                i += 1;
+            }
+        } else {
+            out.push(b);
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Plans non-overlapping replacements of every match in the scope, at most
+/// `max`. Nothing is changed; the caller applies them as one transaction.
+pub fn plan_replacements(
+    tree: &Tree,
+    matcher: &Matcher,
+    scope: Scope,
+    replacement: &Replacement,
+    max: usize,
+    cancel: &Cancel,
+) -> Result<Vec<Planned>> {
+    let mut hits = Vec::new();
+    let mut next_free = 0u64;
+    find_all(
+        tree,
+        matcher,
+        scope,
+        usize::MAX,
+        cancel,
+        &crate::task::no_progress,
+        |m| {
+            if m.offset >= next_free && hits.len() < max {
+                next_free = m.offset + m.len.max(1);
+                hits.push(m);
+            }
+        },
+    )?;
+    hits.truncate(max);
+    let mut out = Vec::with_capacity(hits.len());
+    for m in hits {
+        cancel.check()?;
+        let old = tree.read_vec(m.offset, m.len as usize)?;
+        let new = match (replacement, matcher) {
+            (Replacement::Bytes { bytes }, _) => bytes.clone(),
+            (Replacement::Template { template }, Matcher::Regex { re, .. }) => {
+                match re.captures(&old) {
+                    Some(c) => expand_template(template, &c),
+                    None => template.clone(),
+                }
+            }
+            (Replacement::Template { template }, _) => template.clone(),
+        };
+        out.push(Planned {
+            offset: m.offset,
+            len: m.len,
+            old,
+            new,
+        });
+    }
+    Ok(out)
 }

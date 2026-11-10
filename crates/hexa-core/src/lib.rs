@@ -10,6 +10,8 @@ pub mod format;
 pub mod hash;
 pub mod history;
 pub mod inspector;
+pub mod inspector_ext;
+pub mod marks;
 pub mod piece;
 pub mod provider;
 pub mod recovery;

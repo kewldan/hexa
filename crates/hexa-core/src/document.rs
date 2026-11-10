@@ -147,6 +147,8 @@ pub struct Document {
     pub(crate) name: String,
     typing: Option<TypingRun>,
     tx: Option<(String, Tree, Option<Change>)>,
+    marks: Vec<crate::marks::Mark>,
+    next_mark: u64,
 }
 
 impl Document {
@@ -169,6 +171,8 @@ impl Document {
             name,
             typing: None,
             tx: None,
+            marks: Vec::new(),
+            next_mark: 1,
         }
     }
 
@@ -352,12 +356,20 @@ impl Document {
 
     pub fn undo(&mut self) -> Option<Change> {
         self.break_typing();
-        self.history.undo().map(Change::inverse)
+        let c = self.history.undo().map(Change::inverse);
+        if let Some(c) = c {
+            crate::marks::map_marks(&mut self.marks, c);
+        }
+        c
     }
 
     pub fn redo(&mut self) -> Option<Change> {
         self.break_typing();
-        self.history.redo()
+        let c = self.history.redo();
+        if let Some(c) = c {
+            crate::marks::map_marks(&mut self.marks, c);
+        }
+        c
     }
 
     pub fn history(&self) -> Vec<HistoryItem> {
@@ -366,7 +378,80 @@ impl Document {
 
     pub fn history_goto(&mut self, id: usize) -> bool {
         self.break_typing();
-        self.history.goto(id)
+        match self.history.goto(id) {
+            Some(changes) => {
+                for c in changes {
+                    crate::marks::map_marks(&mut self.marks, c);
+                }
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Applies planned replacements as one undoable step (SRCH-20).
+    pub fn apply_replacements(&mut self, plan: &[crate::search::Planned]) -> Result<Change> {
+        if plan.iter().any(|p| p.new.len() as u64 != p.len) && self.fixed_size {
+            return Err(Error::FixedSize);
+        }
+        let mut sorted: Vec<&crate::search::Planned> = plan.iter().collect();
+        sorted.sort_by_key(|p| std::cmp::Reverse(p.offset));
+        let start = sorted.iter().map(|p| p.offset).min().unwrap_or(0);
+        let end = sorted.iter().map(|p| p.offset + p.len).max().unwrap_or(0);
+        let delta: i128 = sorted
+            .iter()
+            .map(|p| p.new.len() as i128 - i128::from(p.len))
+            .sum();
+        self.transaction("Replace all", |d| {
+            for p in sorted {
+                d.replace(p.offset, p.offset + p.len, &p.new)?;
+            }
+            Ok(())
+        })?;
+        Ok(Change {
+            start,
+            removed: end - start,
+            inserted: (i128::from(end - start) + delta) as u64,
+        })
+    }
+
+    // ----- marks (NAV-14…18) ------------------------------------------------
+
+    pub fn marks(&self) -> &[crate::marks::Mark] {
+        &self.marks
+    }
+
+    /// Adds a mark and returns its id.
+    pub fn add_mark(&mut self, mut mark: crate::marks::Mark) -> u64 {
+        mark.id = self.next_mark;
+        self.next_mark += 1;
+        self.marks.push(mark);
+        self.next_mark - 1
+    }
+
+    /// Replaces a mark with the same id; returns false if it does not exist.
+    pub fn update_mark(&mut self, mark: crate::marks::Mark) -> bool {
+        match self.marks.iter_mut().find(|m| m.id == mark.id) {
+            Some(m) => {
+                *m = mark;
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn remove_mark(&mut self, id: u64) -> bool {
+        let n = self.marks.len();
+        self.marks.retain(|m| m.id != id);
+        n != self.marks.len()
+    }
+
+    /// Replaces all marks (import, workspace restore); ids are reassigned.
+    pub fn set_marks(&mut self, marks: Vec<crate::marks::Mark>) {
+        self.marks.clear();
+        for m in marks {
+            self.add_mark(m);
+        }
     }
 
     /// Undoes one earlier edit while keeping everything done after it
@@ -435,6 +520,7 @@ impl Document {
 
     fn apply(&mut self, tree: Tree, label: &str, change: Change) -> Change {
         self.typing = None;
+        crate::marks::map_marks(&mut self.marks, change);
         if let Some((_, t, c)) = &mut self.tx {
             *t = tree;
             *c = Some(match *c {
@@ -509,6 +595,26 @@ impl Document {
                 pos == run_end && run.insert == insert
             };
             if fresh && continues {
+                let step = if amend {
+                    Change {
+                        start: pos,
+                        removed: 1,
+                        inserted: 1,
+                    }
+                } else if run.insert || pos >= len {
+                    Change {
+                        start: pos,
+                        removed: 0,
+                        inserted: 1,
+                    }
+                } else {
+                    Change {
+                        start: pos,
+                        removed: 1,
+                        inserted: 1,
+                    }
+                };
+                crate::marks::map_marks(&mut self.marks, step);
                 if amend {
                     run.bytes[(pos - run.start) as usize] = byte;
                 } else {
@@ -522,6 +628,20 @@ impl Document {
         }
 
         let base_tree = self.history.tree().clone();
+        let first = if insert || pos >= len {
+            Change {
+                start: pos,
+                removed: 0,
+                inserted: 1,
+            }
+        } else {
+            Change {
+                start: pos,
+                removed: 1,
+                inserted: 1,
+            }
+        };
+        crate::marks::map_marks(&mut self.marks, first);
         let mut run = TypingRun {
             entry: 0,
             start: pos,
@@ -783,6 +903,14 @@ impl Document {
         if new <= old {
             return Ok(0);
         }
+        crate::marks::map_marks(
+            &mut self.marks,
+            Change {
+                start: old,
+                removed: 0,
+                inserted: new - old,
+            },
+        );
         let tail = Tree::from_piece(Piece::provider(self.base.clone(), old, new - old));
         let tree = self.tree().concat(&tail);
         self.history.collapse();

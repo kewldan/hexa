@@ -622,3 +622,133 @@ pub fn inspector_set(
         d.overwrite(pos, &bytes).map(Some)
     })
 }
+
+// ---------------------------------------------------------------- marks (NAV-14…18)
+
+#[tauri::command]
+pub fn marks_list(state: State<'_, AppState>, id: u64) -> CmdResult<Vec<hexa_core::marks::Mark>> {
+    let entry = state.get(id)?;
+    let doc = entry.doc.lock();
+    Ok(doc.marks().to_vec())
+}
+
+#[tauri::command]
+pub fn marks_add(
+    state: State<'_, AppState>,
+    id: u64,
+    mark: hexa_core::marks::Mark,
+) -> CmdResult<u64> {
+    let entry = state.get(id)?;
+    let mut doc = entry.doc.lock();
+    Ok(doc.add_mark(mark))
+}
+
+#[tauri::command]
+pub fn marks_update(
+    state: State<'_, AppState>,
+    id: u64,
+    mark: hexa_core::marks::Mark,
+) -> CmdResult<bool> {
+    let entry = state.get(id)?;
+    let mut doc = entry.doc.lock();
+    Ok(doc.update_mark(mark))
+}
+
+#[tauri::command]
+pub fn marks_remove(state: State<'_, AppState>, id: u64, mark: u64) -> CmdResult<bool> {
+    let entry = state.get(id)?;
+    let mut doc = entry.doc.lock();
+    Ok(doc.remove_mark(mark))
+}
+
+#[tauri::command]
+pub fn marks_set(
+    state: State<'_, AppState>,
+    id: u64,
+    marks: Vec<hexa_core::marks::Mark>,
+) -> CmdResult<Vec<hexa_core::marks::Mark>> {
+    let entry = state.get(id)?;
+    let mut doc = entry.doc.lock();
+    doc.set_marks(marks);
+    Ok(doc.marks().to_vec())
+}
+
+/// Extended inspector rows (INSP-04…13, INSP-19 for selections).
+#[tauri::command]
+pub fn inspect_ext(
+    state: State<'_, AppState>,
+    id: u64,
+    pos: u64,
+    len: Option<u64>,
+    endian: Endian,
+    q_int: Option<u32>,
+    q_frac: Option<u32>,
+) -> CmdResult<Vec<hexa_core::inspector_ext::ExtRow>> {
+    let entry = state.get(id)?;
+    let tree = entry.view.read().tree.clone();
+    let n = len.unwrap_or(64).min(4096) as usize;
+    let bytes = tree
+        .read_vec(pos, n)
+        .map_err(|e| CmdError::from(hexa_core::Error::from(e)))?;
+    Ok(hexa_core::inspector_ext::inspect_ext(
+        &bytes,
+        endian,
+        (q_int.unwrap_or(16), q_frac.unwrap_or(16)),
+    ))
+}
+
+/// Plans replacements for preview (SRCH-20…22).
+#[tauri::command]
+pub async fn replace_plan(
+    state: State<'_, AppState>,
+    id: u64,
+    query: hexa_core::search::Query,
+    scope: Option<hexa_core::search::Scope>,
+    replacement: hexa_core::search::Replacement,
+    max: Option<usize>,
+) -> CmdResult<Vec<hexa_core::search::Planned>> {
+    let entry = state.get(id)?;
+    let tree = entry.view.read().tree.clone();
+    let matcher = hexa_core::search::compile(&query)?;
+    let scope = scope.unwrap_or_else(|| hexa_core::search::Scope::whole(&tree));
+    let max = max.unwrap_or(100_000);
+    let r = tauri::async_runtime::spawn_blocking(move || {
+        hexa_core::search::plan_replacements(
+            &tree,
+            &matcher,
+            scope,
+            &replacement,
+            max,
+            &hexa_core::Cancel::new(),
+        )
+    })
+    .await
+    .map_err(|e| CmdError::new("internal", e.to_string()))?;
+    Ok(r?)
+}
+
+#[tauri::command]
+pub fn replace_apply(
+    state: State<'_, AppState>,
+    id: u64,
+    plan: Vec<PlannedIn>,
+) -> CmdResult<EditResult> {
+    let plan: Vec<hexa_core::search::Planned> = plan
+        .into_iter()
+        .map(|p| hexa_core::search::Planned {
+            offset: p.offset,
+            len: p.len,
+            old: Vec::new(),
+            new: p.new,
+        })
+        .collect();
+    mutate(&state, id, |d| d.apply_replacements(&plan).map(Some))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlannedIn {
+    pub offset: u64,
+    pub len: u64,
+    pub new: Vec<u8>,
+}

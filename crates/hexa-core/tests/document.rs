@@ -117,6 +117,43 @@ fn revert_refuses_conflicts_and_other_branches() {
 }
 
 #[test]
+fn marks_follow_edits_undo_and_history_jumps() {
+    use hexa_core::marks::{Mark, MarkKind};
+    let mut doc = Document::from_bytes("t", b"0123456789".to_vec());
+    doc.set_mode(EditMode::Insert).unwrap();
+    let id = doc.add_mark(Mark {
+        kind: MarkKind::Bookmark,
+        start: 4,
+        end: 6,
+        name: "45".into(),
+        ..Mark::default()
+    });
+    let at = |d: &Document| {
+        let m = d.marks().iter().find(|m| m.id == id).unwrap();
+        (m.start, m.end)
+    };
+    doc.insert(0, b"ab").unwrap();
+    assert_eq!(at(&doc), (6, 8));
+    doc.type_byte(0, b'x', false).unwrap();
+    doc.type_byte(1, b'y', false).unwrap();
+    assert_eq!(at(&doc), (8, 10));
+    assert_eq!(doc.read_vec(8, 2).unwrap(), b"45");
+    doc.undo();
+    assert_eq!(at(&doc), (6, 8));
+    doc.undo();
+    assert_eq!(at(&doc), (4, 6));
+    doc.redo();
+    assert_eq!(at(&doc), (6, 8));
+    // Jump across branches.
+    doc.undo();
+    doc.delete(0, 2).unwrap(); // new branch: 23456789
+    assert_eq!(at(&doc), (2, 4));
+    assert!(doc.history_goto(2));
+    assert_eq!(at(&doc), (8, 10));
+    assert_eq!(doc.read_vec(8, 2).unwrap(), b"45");
+}
+
+#[test]
 fn copy_paste_shares_pieces() {
     let mut doc = Document::from_bytes("t", (0..=255).collect());
     let clip = doc.copy(10, 20).unwrap();

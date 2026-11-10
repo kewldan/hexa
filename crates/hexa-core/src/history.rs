@@ -167,11 +167,14 @@ impl History {
         self.entries[next].change
     }
 
-    /// Jumps to any entry of the undo tree (CORE-13).
-    pub fn goto(&mut self, id: usize) -> bool {
+    /// Jumps to any entry of the undo tree (CORE-13). Returns the changes
+    /// that turn the old state into the new one (undo steps up to the common
+    /// ancestor, then redo steps down), or `None` for an unknown id.
+    pub fn goto(&mut self, id: usize) -> Option<Vec<Change>> {
         if id >= self.entries.len() {
-            return false;
+            return None;
         }
+        let changes = self.path_changes(self.current, id);
         // Make redo follow the path towards `id` from every ancestor.
         let mut node = id;
         while let Some(parent) = self.entries[node].parent {
@@ -179,7 +182,36 @@ impl History {
             node = parent;
         }
         self.current = id;
-        true
+        Some(changes)
+    }
+
+    fn ancestors(&self, mut n: usize) -> Vec<usize> {
+        let mut out = vec![n];
+        while let Some(p) = self.entries[n].parent {
+            out.push(p);
+            n = p;
+        }
+        out
+    }
+
+    fn path_changes(&self, from: usize, to: usize) -> Vec<Change> {
+        let up = self.ancestors(from);
+        let down = self.ancestors(to);
+        let common = up.iter().find(|n| down.contains(n)).copied().unwrap_or(0);
+        let mut out = Vec::new();
+        for &n in up.iter().take_while(|&&n| n != common) {
+            if let Some(c) = self.entries[n].change {
+                out.push(c.inverse());
+            }
+        }
+        let mut forward: Vec<Change> = down
+            .iter()
+            .take_while(|&&n| n != common)
+            .filter_map(|&n| self.entries[n].change)
+            .collect();
+        forward.reverse();
+        out.extend(forward);
+        out
     }
 
     /// Tree before entry `id` and the change the entry made.
@@ -297,7 +329,7 @@ mod tests {
         assert_eq!(h.redo(), Some(ch()));
         assert_eq!(h.current(), branch);
         // The old branch is still reachable.
-        assert!(h.goto(2));
+        assert!(h.goto(2).is_some());
         assert_eq!(h.tree().len(), 3);
         h.undo();
         assert_eq!(h.redo(), Some(ch()));
